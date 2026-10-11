@@ -1,3 +1,13 @@
+use master;
+go
+
+if db_id('EastLeaf_OrderDB') is not null
+begin
+    alter database EastLeaf_OrderDB set single_user with rollback immediate;
+    drop database EastLeaf_OrderDB;
+end
+go
+
 create database EastLeaf_OrderDB;
 go
 
@@ -5,30 +15,33 @@ use EastLeaf_OrderDB;
 go
 
 create table Customer (
-CustomerID      int identity(1,1) primary key,
+CustomerID      bigint identity(1,1) primary key,
 FirstName       nvarchar(50)  not null,
 LastName        nvarchar(50)  not null,
 Email           nvarchar(100) not null unique,
 PhoneNumber     nvarchar(20)  null,
 DeliveryAddress nvarchar(255) null,
-IsActive        bit not null default 1
+IsActive        bit           not null default 1,
+constraint CK_Customer_Names check (len(ltrim(rtrim(FirstName))) > 0 and len(ltrim(rtrim(LastName))) > 0),
+constraint CK_Customer_Email check (Email like '%_@_%._%')
 );
 go
 
 create table Promotions (
-PromotionID        int identity(1,1) primary key,
+PromotionID        bigint identity(1,1) primary key,
 Code               nvarchar(50)  not null unique,
 DiscountPercentage decimal(5,2)  not null,
 StartDate          datetime2     not null,
 EndDate            datetime2     not null,
-IsActive           bit not null default 1,
+IsActive           bit           not null default 1,
 constraint CK_Promotions_Discount check (DiscountPercentage > 0 and DiscountPercentage <= 100),
 constraint CK_Promotions_Dates    check (EndDate > StartDate)
 );
 go
 
+
 create table Products (
-ProductID   int           primary key,
+ProductID   bigint        primary key, 
 ProductName nvarchar(200) not null,
 Price       decimal(18,2) not null,
 constraint CK_Products_Price check (Price > 0)
@@ -36,9 +49,9 @@ constraint CK_Products_Price check (Price > 0)
 go
 
 create table Orders (
-OrderID     int identity(1,1) primary key,
-CustomerID  int           not null,
-PromotionID int           null,
+OrderID     bigint identity(1,1) primary key,
+CustomerID  bigint        not null,
+PromotionID bigint        null,
 OrderDate   datetime2     not null default sysdatetime(),
 OrderState  nvarchar(30)  not null default 'Submitted',
 TotalAmount decimal(18,2) not null,
@@ -50,8 +63,8 @@ constraint FK_Orders_Promotions foreign key (PromotionID) references Promotions(
 go
 
 create table OrderItems (
-OrderID     int           not null,
-ProductID   int           not null,
+OrderID     bigint        not null,
+ProductID   bigint        not null,
 ProductName nvarchar(200) not null,
 UnitPrice   decimal(18,2) not null,
 Units       int           not null,
@@ -64,7 +77,7 @@ constraint FK_OrderItems_Products foreign key (ProductID) references Products(Pr
 go
 
 create table PaymentRecords (
-OrderID         int           primary key,
+OrderID         bigint        primary key,
 PaymentMethod   nvarchar(50)  not null,
 Amount          decimal(18,2) not null,
 PaymentStatus   nvarchar(30)  not null default 'Pending',
@@ -73,6 +86,13 @@ constraint CK_Payment_Amount check (Amount >= 0),
 constraint CK_Payment_Status check (PaymentStatus in ('Pending','Completed','Failed','Refunded')),
 constraint FK_PaymentRecords_Orders foreign key (OrderID) references Orders(OrderID) on delete cascade
 );
+go
+
+create index IX_Orders_CustomerID_Status on Orders(CustomerID, OrderState) include (OrderDate, TotalAmount);
+create index IX_Orders_PromotionID on Orders(PromotionID) where PromotionID is not null;
+create index IX_Orders_Paid on Orders(OrderDate) where OrderState = 'Paid';
+create index IX_OrderItems_ProductID on OrderItems(ProductID);
+create index IX_PaymentRecords_Pending on PaymentRecords(TransactionDate) where PaymentStatus = 'Pending';
 go
 
 create view vw_OrderSummary as
