@@ -95,7 +95,39 @@ create index IX_OrderItems_ProductID on OrderItems(ProductID);
 create index IX_PaymentRecords_Pending on PaymentRecords(TransactionDate) where PaymentStatus = 'Pending';
 go
 
-create view vw_OrderSummary as
+use EastLeaf_OrderDB;
+go
+
+alter table Customer add
+CreatedAt datetime2     not null default sysutcdatetime(),
+CreatedBy nvarchar(100) null,
+UpdatedAt datetime2     null,
+UpdatedBy nvarchar(100) null,
+IsDeleted bit           not null default 0;
+go
+
+alter table Promotions add
+CreatedAt datetime2     not null default sysutcdatetime(),
+CreatedBy nvarchar(100) null,
+UpdatedAt datetime2     null,
+UpdatedBy nvarchar(100) null,
+IsDeleted bit           not null default 0;
+go
+
+alter table Orders add
+CreatedAt  datetime2     not null default sysutcdatetime(),
+CreatedBy  nvarchar(100) null,
+UpdatedAt  datetime2     null,
+UpdatedBy  nvarchar(100) null,
+IsDeleted  bit           not null default 0,
+RowVers    rowversion;
+go
+
+create index IX_Orders_Active on Orders(CustomerID) where IsDeleted = 0;
+create index IX_Customer_Active on Customer(LastName, FirstName) where IsDeleted = 0;
+go
+
+create or alter view vw_OrderSummary as
 select  o.OrderID, o.OrderDate, o.OrderState,
         c.CustomerID, c.FirstName + N' ' + c.LastName as CustomerName, c.Email,
         p.Code as PromoCode, p.DiscountPercentage,
@@ -103,5 +135,6 @@ select  o.OrderID, o.OrderDate, o.OrderState,
 from Orders o
 join Customer c              on c.CustomerID = o.CustomerID
 left join Promotions p       on p.PromotionID = o.PromotionID
-left join PaymentRecords pay on pay.OrderID = o.OrderID;
+left join PaymentRecords pay on pay.OrderID = o.OrderID
+where o.IsDeleted = 0;
 go

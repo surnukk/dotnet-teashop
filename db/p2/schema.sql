@@ -96,7 +96,31 @@ create unique index UX_ProductImages_Main on ProductImages(ProductID) where IsMa
 create index IX_ProductTags_TagID on ProductTags(TagID);
 go
 
-create view vw_ProductCatalog as
+use EastLeaf_CatalogDB;
+go
+
+alter table Categories add
+CreatedAt datetime2     not null default sysutcdatetime(),
+CreatedBy nvarchar(100) null,
+UpdatedAt datetime2     null,
+UpdatedBy nvarchar(100) null,
+IsDeleted bit           not null default 0;
+go
+
+alter table Products add
+CreatedAt  datetime2     not null default sysutcdatetime(),
+CreatedBy  nvarchar(100) null,
+UpdatedAt  datetime2     null,
+UpdatedBy  nvarchar(100) null,
+IsDeleted  bit           not null default 0,
+RowVers    rowversion;                  
+go
+
+create index IX_Products_Active on Products(CategoryID) where IsDeleted = 0;
+create index IX_Categories_Active on Categories(CategoryName) where IsDeleted = 0;
+go
+
+create or alter view vw_ProductCatalog as
 select  p.ProductID, p.ProductName, c.CategoryName, p.Price, p.StockQuantity, p.IsAvailable,
         d.OriginCountry, d.Region, d.TeaForm, d.TeaVariety, d.FlavorNotes, d.WeightGrams,
         g.WaterTemperature, g.BrewTimeSeconds, g.SteepsCount, i.ImageUrl as MainImageUrl
@@ -104,5 +128,6 @@ from Products p
 join Categories c          on c.CategoryID = p.CategoryID
 left join ProductDetails d on d.ProductID = p.ProductID
 left join BrewingGuides g  on g.ProductID = p.ProductID
-left join ProductImages i  on i.ProductID = p.ProductID and i.IsMain = 1;
+left join ProductImages i  on i.ProductID = p.ProductID and i.IsMain = 1
+where p.IsDeleted = 0 and c.IsDeleted = 0;
 go
