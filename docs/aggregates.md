@@ -46,9 +46,12 @@
 
 ---
 
-Таблиця політики дублювання даних
- Поле | Де зберігається | Джерело (власник даних) | Політика узгодженості |
- OrderItems.ProductID | EastLeaf_OrderDB | Product (EastLeaf_CatalogDB) | Логічне посилання за ідентифікатором, без FK. Існування товару перевіряє прикладний код при оформленні | OrderItems.ProductName, UnitPrice | EastLeaf_OrderDB | Product (EastLeaf_CatalogDB) | Знімок на момент оформлення: не оновлюється |
- reviews.productId | EastLeaf_ReviewsDB | Product (EastLeaf_CatalogDB) | Логічне посилання за ідентифікатором, без FK |
- reviews.productName | EastLeaf_ReviewsDB | Product (EastLeaf_CatalogDB) | Копія для читання: оновлюється подіями з Каталогу |
- reviews.author.userId, displayName | EastLeaf_ReviewsDB | Customer (EastLeaf_OrderDB) | userId збігається з CustomerID, без FK. displayName це знімок на момент написання відгуку, не оновлюється |
+ Таблиця політики дублювання даних
+| Поле | Де зберігається | Джерело (власник даних) | Політика узгодженості |
+|---|---|---|---|
+| OrderItems.ProductID | EastLeaf_OrderDB | Product (EastLeaf_CatalogDB) | Логічне посилання за ідентифікатором, без FK між базами |
+| OrderItems.ProductName, UnitPrice | EastLeaf_OrderDB | Product (EastLeaf_CatalogDB) | Знімок на момент оформлення: не оновлюється |
+| Products.ProductName, Price (локальна копія) | EastLeaf_OrderDB | Product (EastLeaf_CatalogDB) | Копія для читання: оновлюється подіями з Каталогу |
+| reviews.productId | EastLeaf_ReviewsDB | Product (EastLeaf_CatalogDB) | Логічне посилання за ідентифікатором, без FK |
+| reviews.productName | EastLeaf_ReviewsDB | Product (EastLeaf_CatalogDB) | Копія для читання: оновлюється подіями з Каталогу |
+| reviews.author.userId, displayName | EastLeaf_ReviewsDB | Customer (EastLeaf_OrderDB) | userId = CustomerID, без FK; displayName це знімок на момент відгуку, не оновлюється |
