@@ -1,0 +1,20 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Data;
+
+namespace Orders.Dal.Interfaces;
+
+public interface IUnitOfWork : IAsyncDisposable
+{
+    ICustomerRepository Customers { get; }
+    IOrderRepository Orders { get; }
+    IProductRepository Products { get; }
+    IPromotionRepository Promotions { get; }
+
+    Task BeginTransactionAsync(IsolationLevel level = IsolationLevel.ReadCommitted, CancellationToken ct = default);
+    Task CommitAsync(CancellationToken ct = default);
+    Task RollbackAsync(CancellationToken ct = default);
+}
