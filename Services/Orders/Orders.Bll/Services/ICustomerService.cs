@@ -16,4 +16,6 @@ public interface ICustomerService
     Task<CustomerDto?> GetByEmailAsync(string email, CancellationToken ct = default);
     Task<IEnumerable<CustomerDto>> GetAllAsync(CancellationToken ct = default);
     Task<long> CreateCustomerAsync(UpsertCustomerRequest request, CancellationToken ct = default);
+    Task UpdateAsync(long customerId, UpsertCustomerRequest request, CancellationToken ct = default);
+    Task DeleteAsync(long customerId, CancellationToken ct = default);
 }
