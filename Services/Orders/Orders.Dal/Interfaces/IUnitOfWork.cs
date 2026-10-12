@@ -13,6 +13,7 @@ public interface IUnitOfWork : IAsyncDisposable
     IOrderRepository Orders { get; }
     IProductRepository Products { get; }
     IPromotionRepository Promotions { get; }
+    IPaymentRepository Payments { get; }
 
     Task BeginTransactionAsync(IsolationLevel level = IsolationLevel.ReadCommitted, CancellationToken ct = default);
     Task CommitAsync(CancellationToken ct = default);

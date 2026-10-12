@@ -37,4 +37,13 @@ public sealed class PromotionRepository : BaseDapperRepository<Promotion>, IProm
             $"SELECT {Columns} FROM dbo.Promotions WHERE Code = @Code AND IsDeleted = 0",
             new { Code = code }, ct));
     }
+
+    public async Task<IReadOnlyList<Promotion>> GetActivePromotionsAsync(CancellationToken ct = default)
+    {
+        await EnsureOpenAsync(ct);
+        var rows = await Connection.QueryAsync<Promotion>(Command(
+            $"SELECT {Columns} FROM dbo.Promotions WHERE IsActive = 1 AND IsDeleted = 0",
+            new { }, ct));
+        return rows.AsList();
+    }
 }

@@ -23,12 +23,14 @@ public sealed class UnitOfWork : IUnitOfWork
         Orders = new OrderRepository(_connection, () => _transaction);
         Products = new ProductRepository(_connection, () => _transaction);
         Promotions = new PromotionRepository(_connection, () => _transaction);
+        Payments = new PaymentRepository(_connection, () => _transaction);
     }
 
     public ICustomerRepository Customers { get; }
     public IOrderRepository Orders { get; }
     public IProductRepository Products { get; }
     public IPromotionRepository Promotions { get; }
+    public IPaymentRepository Payments { get; }
 
     public async Task BeginTransactionAsync(
         IsolationLevel level = IsolationLevel.ReadCommitted,
