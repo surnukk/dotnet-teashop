@@ -1,13 +1,14 @@
-﻿using System;
+﻿using Dapper;
+using Microsoft.Data.SqlClient;
+using Orders.Dal.Interfaces;
+using Orders.Domain.Exceptions;
+using Orders.Domain.Models;
+using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Data;
-using Dapper;
-using Microsoft.Data.SqlClient;
-using Orders.Dal.Interfaces;
-using Orders.Domain.Models;
 
 namespace Orders.Dal.Repositories;
 
@@ -89,9 +90,24 @@ public sealed class OrderRepository : BaseDapperRepository<Order>, IOrderReposit
 
     private async Task CallProcedureAsync(string procedure, object parameters, CancellationToken ct)
     {
-        await EnsureOpenAsync(ct);
-        await Connection.ExecuteAsync(new CommandDefinition(
-            procedure, parameters, Transaction,
-            commandType: CommandType.StoredProcedure, cancellationToken: ct));
+        try
+        {
+            await EnsureOpenAsync(ct);
+            await Connection.ExecuteAsync(new CommandDefinition(
+                procedure, parameters, Transaction,
+                commandType: CommandType.StoredProcedure, cancellationToken: ct));
+        }
+        catch (SqlException ex) when (ex.Number == 50001)
+        {
+            throw new NotFoundException($"Requested resource was not found");
+        }
+        catch (SqlException ex) when (ex.Number is >= 50002 and <= 50010)
+        {
+            throw new BusinessConflictException(ex.Message);
+        }
+        catch (SqlException ex) when (ex.Number is 2601 or 2627)
+        {
+            throw new BusinessConflictException("Record with the same key already exists");
+        }
     }
 }

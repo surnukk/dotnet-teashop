@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Orders.Dal;
+using Orders.Dal.Interfaces;
 
 namespace Orders.Bll.Services;
 
