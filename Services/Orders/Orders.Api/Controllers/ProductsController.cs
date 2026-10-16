@@ -6,9 +6,12 @@ namespace Orders.Api.Controllers;
 
 [ApiController]
 [Route("api/products")]
+[ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+[ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
 public class ProductsController(IProductService productService) : ControllerBase
 {
     [HttpGet("{id:long}")]
+    [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<ProductDto>> GetById(long id, CancellationToken ct)
     {
         var product = await productService.GetByIdAsync(id, ct);
@@ -19,6 +22,7 @@ public class ProductsController(IProductService productService) : ControllerBase
     }
 
     [HttpGet]
+    [ProducesResponseType(typeof(IEnumerable<ProductDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<ProductDto>>> GetAll(CancellationToken ct)
     {
         var products = await productService.GetAllAsync(ct);
@@ -26,6 +30,7 @@ public class ProductsController(IProductService productService) : ControllerBase
     }
 
     [HttpGet("{id:long}/check-stock")]
+    [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
     public async Task<ActionResult<bool>> CheckStock(long id, [FromQuery] int units, CancellationToken ct)
     {
         var inStock = await productService.CheckStockAsync(id, units, ct);

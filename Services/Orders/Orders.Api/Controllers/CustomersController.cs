@@ -6,9 +6,13 @@ namespace Orders.Api.Controllers;
 
 [ApiController]
 [Route("api/customers")]
+[ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+[ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+[ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
 public class CustomersController(ICustomerService customerService) : ControllerBase
 {
     [HttpGet("{id:long}")]
+    [ProducesResponseType(typeof(CustomerDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<CustomerDto>> GetById(long id, CancellationToken ct)
     {
         var customer = await customerService.GetByIdAsync(id, ct);
@@ -19,6 +23,7 @@ public class CustomersController(ICustomerService customerService) : ControllerB
     }
 
     [HttpGet("by-email")]
+    [ProducesResponseType(typeof(CustomerDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<CustomerDto>> GetByEmail([FromQuery] string email, CancellationToken ct)
     {
         var customer = await customerService.GetByEmailAsync(email, ct);
@@ -29,6 +34,7 @@ public class CustomersController(ICustomerService customerService) : ControllerB
     }
 
     [HttpGet]
+    [ProducesResponseType(typeof(IEnumerable<CustomerDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<CustomerDto>>> GetAll(CancellationToken ct)
     {
         var customers = await customerService.GetAllAsync(ct);
@@ -36,6 +42,7 @@ public class CustomersController(ICustomerService customerService) : ControllerB
     }
 
     [HttpPost]
+    [ProducesResponseType(typeof(long), StatusCodes.Status201Created)]
     public async Task<ActionResult<long>> Create(UpsertCustomerRequest request, CancellationToken ct)
     {
         var customerId = await customerService.CreateCustomerAsync(request, ct);
@@ -43,6 +50,7 @@ public class CustomersController(ICustomerService customerService) : ControllerB
     }
 
     [HttpPut("{id:long}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Update(long id, UpsertCustomerRequest request, CancellationToken ct)
     {
         await customerService.UpdateAsync(id, request, ct);
@@ -50,6 +58,7 @@ public class CustomersController(ICustomerService customerService) : ControllerB
     }
 
     [HttpDelete("{id:long}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Delete(long id, CancellationToken ct)
     {
         await customerService.DeleteAsync(id, ct);

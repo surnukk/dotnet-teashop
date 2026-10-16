@@ -6,9 +6,13 @@ namespace Orders.Api.Controllers;
 
 [ApiController]
 [Route("api/orders")]
+[ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+[ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+[ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
 public class OrdersController(IOrderService orderService) : ControllerBase
 {
     [HttpGet("{id:long}")]
+    [ProducesResponseType(typeof(OrderDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<OrderDto>> GetById(long id, CancellationToken ct)
     {
         var order = await orderService.GetByIdAsync(id, ct);
@@ -19,6 +23,7 @@ public class OrdersController(IOrderService orderService) : ControllerBase
     }
 
     [HttpPost("{id:long}/ship")]
+    [ProducesResponseType(typeof(IEnumerable<OrderDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> Ship(long id, CancellationToken ct)
     {
         await orderService.ShipOrderAsync(id, ct);
@@ -26,6 +31,7 @@ public class OrdersController(IOrderService orderService) : ControllerBase
     }
 
     [HttpGet("customer/{customerId:long}")]
+    [ProducesResponseType(typeof(long), StatusCodes.Status201Created)]
     public async Task<ActionResult<IEnumerable<OrderDto>>> GetByCustomer(long customerId, CancellationToken ct)
     {
         var orders = await orderService.GetByCustomerIdAsync(customerId, ct);
@@ -33,6 +39,7 @@ public class OrdersController(IOrderService orderService) : ControllerBase
     }
 
     [HttpPost]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<ActionResult<long>> Create([FromBody] CreateOrderRequest request, CancellationToken ct)
     {
         var orderId = await orderService.CreateOrderAsync(request, ct);
@@ -40,6 +47,7 @@ public class OrdersController(IOrderService orderService) : ControllerBase
     }
 
     [HttpPost("{id:long}/confirm")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Confirm(long id, CancellationToken ct)
     {
         await orderService.ConfirmOrderAsync(id, ct);
@@ -47,6 +55,7 @@ public class OrdersController(IOrderService orderService) : ControllerBase
     }
 
     [HttpPost("{id:long}/cancel")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Cancel(long id, CancellationToken ct)
     {
         await orderService.CancelOrderAsync(id, ct);

@@ -20,6 +20,7 @@ builder.Services.AddScoped<IUnitOfWork>(_ => new UnitOfWork(connectionString));
 
 builder.Services.AddAutoMapper(cfg =>
 {
+    cfg.LicenseKey = builder.Configuration["AutoMapper:LicenseKey"];
     cfg.AddProfile<OrderProfile>();
 });
 
@@ -40,7 +41,6 @@ builder.Services.AddProblemDetails(o => o.CustomizeProblemDetails = ctx =>
 });
 builder.Services.AddExceptionHandler<Orders.Api.Infrastructure.DomainExceptionHandler>();
 
-builder.Services.AddScoped<IOrderService, OrderService>();
 
 var app = builder.Build();
 
