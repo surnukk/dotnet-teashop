@@ -54,13 +54,15 @@ public abstract class BaseDapperRepository<T> : RepositoryBase, IGenericReposito
     public async Task<long> AddAsync(T entity, CancellationToken ct = default)
     {
         await EnsureOpenAsync(ct);
-        return await Connection.ExecuteScalarAsync<long>(Command(InsertSql, entity, ct));
+        return await ExecuteAsync(() =>
+            Connection.ExecuteScalarAsync<long>(Command(InsertSql, entity, ct)));
     }
 
     public async Task<bool> UpdateAsync(T entity, CancellationToken ct = default)
     {
         await EnsureOpenAsync(ct);
-        return await Connection.ExecuteAsync(Command(UpdateSql, entity, ct)) > 0;
+        return await ExecuteAsync(async () =>
+            await Connection.ExecuteAsync(Command(UpdateSql, entity, ct)) > 0);
     }
 
     public async Task<bool> DeleteAsync(long id, CancellationToken ct = default)
@@ -69,6 +71,7 @@ public abstract class BaseDapperRepository<T> : RepositoryBase, IGenericReposito
             ? $"UPDATE {_table} SET IsDeleted = 1, UpdatedAt = SYSUTCDATETIME() WHERE {_keyColumn} = @Id AND IsDeleted = 0"
             : $"DELETE FROM {_table} WHERE {_keyColumn} = @Id";
         await EnsureOpenAsync(ct);
-        return await Connection.ExecuteAsync(Command(sql, new { Id = id }, ct)) > 0;
+        return await ExecuteAsync(async () =>
+            await Connection.ExecuteAsync(Command(sql, new { Id = id }, ct)) > 0);
     }
 }

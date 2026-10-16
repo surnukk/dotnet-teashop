@@ -55,9 +55,20 @@ public sealed class UnitOfWork : IUnitOfWork
     {
         if (_transaction is null) return;
 
-        await _transaction.RollbackAsync(ct);
-        await _transaction.DisposeAsync();
-        _transaction = null;
+        try
+        {
+            if (_transaction.Connection is not null)
+                await _transaction.RollbackAsync(ct);
+        }
+        catch (InvalidOperationException)
+        {
+            // Транзакція вже завершена на сервері, відкочувати нічого.
+        }
+        finally
+        {
+            await _transaction.DisposeAsync();
+            _transaction = null;
+        }
     }
 
     public async ValueTask DisposeAsync()

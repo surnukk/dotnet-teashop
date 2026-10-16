@@ -26,20 +26,7 @@ public class PaymentService : IPaymentService
 
     public async Task ProcessPaymentAsync(long orderId, decimal amount, string paymentMethod, CancellationToken ct = default)
     {
-        var order = await _uow.Orders.GetByIdAsync(orderId, ct)
-                    ?? throw new NotFoundException($"Order {orderId} not found");
-
-        var payment = new PaymentRecord
-        {
-            OrderID = orderId,
-            Amount = amount,
-            PaymentMethod = paymentMethod,
-            PaymentStatus = "Completed",
-            TransactionDate = DateTime.UtcNow
-        };
-
-        await _uow.Payments.AddAsync(payment, ct);
-        await _uow.CommitAsync(ct);
+        await _uow.Orders.MarkAsPaidAsync(orderId, paymentMethod, amount, ct);
     }
 
     public async Task RefundPaymentAsync(long orderId, CancellationToken ct = default)
@@ -47,8 +34,10 @@ public class PaymentService : IPaymentService
         var payment = await _uow.Payments.GetByOrderIdAsync(orderId, ct)
                       ?? throw new NotFoundException($"Payment for order {orderId} not found");
 
+        if (payment.PaymentStatus != "Completed")
+            throw new BusinessConflictException("Only a completed payment can be refunded");
+
         payment.PaymentStatus = "Refunded";
         await _uow.Payments.UpdateAsync(payment, ct);
-        await _uow.CommitAsync(ct);
     }
 }

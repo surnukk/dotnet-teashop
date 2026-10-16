@@ -72,9 +72,9 @@ public sealed class OrderRepository : BaseDapperRepository<Order>, IOrderReposit
     public async Task AddItemAsync(OrderItem item, CancellationToken ct = default)
     {
         await EnsureOpenAsync(ct);
-        await Connection.ExecuteAsync(Command(@"
+        await ExecuteAsync(() => Connection.ExecuteAsync(Command(@"
             INSERT INTO dbo.OrderItems (OrderID, ProductID, ProductName, UnitPrice, Units)
-            VALUES (@OrderID, @ProductID, @ProductName, @UnitPrice, @Units)", item, ct));
+            VALUES (@OrderID, @ProductID, @ProductName, @UnitPrice, @Units)", item, ct)));
     }
 
     public Task ConfirmAsync(long orderId, CancellationToken ct = default)
@@ -90,24 +90,9 @@ public sealed class OrderRepository : BaseDapperRepository<Order>, IOrderReposit
 
     private async Task CallProcedureAsync(string procedure, object parameters, CancellationToken ct)
     {
-        try
-        {
-            await EnsureOpenAsync(ct);
-            await Connection.ExecuteAsync(new CommandDefinition(
-                procedure, parameters, Transaction,
-                commandType: CommandType.StoredProcedure, cancellationToken: ct));
-        }
-        catch (SqlException ex) when (ex.Number == 50001)
-        {
-            throw new NotFoundException($"Requested resource was not found");
-        }
-        catch (SqlException ex) when (ex.Number is >= 50002 and <= 50010)
-        {
-            throw new BusinessConflictException(ex.Message);
-        }
-        catch (SqlException ex) when (ex.Number is 2601 or 2627)
-        {
-            throw new BusinessConflictException("Record with the same key already exists");
-        }
+        await EnsureOpenAsync(ct);
+        await ExecuteAsync(() => Connection.ExecuteAsync(new CommandDefinition(
+            procedure, parameters, Transaction,
+            commandType: CommandType.StoredProcedure, cancellationToken: ct)));
     }
 }

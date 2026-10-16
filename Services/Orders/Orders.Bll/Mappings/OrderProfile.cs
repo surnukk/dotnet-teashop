@@ -19,5 +19,9 @@ public class OrderProfile : Profile
         CreateMap<PaymentRecord, PaymentRecordDto>();
         CreateMap<OrderItem, OrderItemDto>();
         CreateMap<Order, OrderDto>();
+
+        CreateMap<UpsertCustomerRequest, Customer>()
+            .ForMember(d => d.CustomerID, o => o.Ignore())
+            .ForMember(d => d.IsActive, o => o.Ignore());
     }
 }

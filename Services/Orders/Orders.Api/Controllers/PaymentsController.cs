@@ -22,7 +22,7 @@ public class PaymentsController(IPaymentService paymentService) : ControllerBase
     public async Task<IActionResult> ProcessPayment([FromBody] ProcessPaymentRequest request, CancellationToken ct)
     {
         await paymentService.ProcessPaymentAsync(request.OrderId, request.Amount, request.PaymentMethod, ct);
-        return Ok();
+        return NoContent();
     }
 
     [HttpPost("order/{orderId:long}/refund")]

@@ -32,48 +32,64 @@ public class OrderService : IOrderService
         return _mapper.Map<IEnumerable<OrderDto>>(orders);
     }
 
-    public async Task<long> CreateOrderAsync(long customerId, long? promotionId, IEnumerable<OrderItemDto> items, CancellationToken ct = default)
+    public async Task<long> CreateOrderAsync(CreateOrderRequest request, CancellationToken ct = default)
     {
-        await _uow.BeginTransactionAsync(System.Data.IsolationLevel.ReadCommitted, ct);
+        if (request.Items.Count == 0)
+            throw new ValidationException("Order must contain at least one item");
+
+        var duplicate = request.Items.GroupBy(i => i.ProductId).FirstOrDefault(g => g.Count() > 1);
+        if (duplicate is not null)
+            throw new ValidationException($"Product {duplicate.Key} is listed more than once");
+
+        await _uow.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
         try
         {
-            var customer = await _uow.Customers.GetByIdAsync(customerId, ct);
-            if (customer is null)
-                throw new NotFoundException($"Customer with ID {customerId} not found.");
+            var customer = await _uow.Customers.GetByIdAsync(request.CustomerId, ct)
+                           ?? throw new NotFoundException($"Customer {request.CustomerId} not found");
+            if (!customer.IsActive)
+                throw new BusinessConflictException($"Customer {request.CustomerId} is not active");
 
-            var orderItems = new List<OrderItem>();
-            decimal totalAmount = 0;
-
-            foreach (var itemDto in items)
+            decimal discountPercent = 0;
+            if (request.PromotionId is { } promotionId)
             {
-                var product = await _uow.Products.GetByIdAsync(itemDto.ProductId, ct);
-                if (product is null)
-                    throw new NotFoundException($"Product with ID {itemDto.ProductId} not found.");
+                var promo = await _uow.Promotions.GetByIdAsync(promotionId, ct)
+                            ?? throw new ValidationException($"Promotion {promotionId} does not exist");
 
-                decimal itemTotal = product.Price * itemDto.Units;
-                totalAmount += itemTotal;
+                var now = DateTime.UtcNow;
+                if (!promo.IsActive || now < promo.StartDate || now > promo.EndDate)
+                    throw new ValidationException($"Promotion '{promo.Code}' is not active");
 
-                orderItems.Add(new OrderItem
-                {
-                    ProductID = product.ProductID,
-                    ProductName = product.ProductName,
-                    UnitPrice = product.Price,
-                    Units = itemDto.Units
-                });
+                discountPercent = promo.DiscountPercentage;
             }
+
+            var ids = request.Items.Select(i => i.ProductId).ToList();
+            var products = (await _uow.Products.GetByIdsAsync(ids, ct)).ToDictionary(p => p.ProductID);
+
+            var missing = ids.Where(id => !products.ContainsKey(id)).ToList();
+            if (missing.Count > 0)
+                throw new NotFoundException($"Products not found: {string.Join(", ", missing)}");
+
+            var items = request.Items.Select(i => new OrderItem
+            {
+                ProductID = i.ProductId,
+                ProductName = products[i.ProductId].ProductName,
+                UnitPrice = products[i.ProductId].Price,
+                Units = i.Units
+            }).ToList();
+
+            var subtotal = items.Sum(i => i.UnitPrice * i.Units);
+            var total = Math.Round(subtotal * (100m - discountPercent) / 100m, 2, MidpointRounding.AwayFromZero);
 
             var order = new Order
             {
-                CustomerID = customerId,
-                PromotionID = promotionId,
+                CustomerID = request.CustomerId,
+                PromotionID = request.PromotionId,
                 OrderState = "Submitted",
-                TotalAmount = totalAmount,
-                OrderDate = DateTime.UtcNow
+                TotalAmount = total
             };
 
-            long orderId = await _uow.Orders.AddAsync(order, ct);
-
-            foreach (var item in orderItems)
+            var orderId = await _uow.Orders.AddAsync(order, ct);
+            foreach (var item in items)
             {
                 item.OrderID = orderId;
                 await _uow.Orders.AddItemAsync(item, ct);
@@ -97,22 +113,11 @@ public class OrderService : IOrderService
             var order = await _uow.Orders.GetWithItemsAsync(orderId, ct)
                         ?? throw new NotFoundException($"Order {orderId} not found");
 
-            if (order.Items == null || order.Items.Count == 0)
+            if (order.Items.Count == 0)
                 throw new BusinessConflictException($"Order {orderId} has no items");
 
             await _uow.Orders.ConfirmAsync(orderId, ct);
-
             await _uow.CommitAsync(ct);
-        }
-        catch (SqlException ex) when (ex.Number == 50001)
-        {
-            await _uow.RollbackAsync(ct);
-            throw new NotFoundException($"Order {orderId} not found");
-        }
-        catch (SqlException ex) when (ex.Number == 50002 || ex.Number == 50003)
-        {
-            await _uow.RollbackAsync(ct);
-            throw new BusinessConflictException(ex.Message);
         }
         catch
         {
@@ -135,5 +140,10 @@ public class OrderService : IOrderService
             await _uow.RollbackAsync(ct);
             throw;
         }
+    }
+
+    public async Task ShipOrderAsync(long orderId, CancellationToken ct = default)
+    {
+        await _uow.Orders.ShipAsync(orderId, ct);
     }
 }

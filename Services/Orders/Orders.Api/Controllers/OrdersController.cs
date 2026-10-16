@@ -18,6 +18,13 @@ public class OrdersController(IOrderService orderService) : ControllerBase
         return Ok(order);
     }
 
+    [HttpPost("{id:long}/ship")]
+    public async Task<IActionResult> Ship(long id, CancellationToken ct)
+    {
+        await orderService.ShipOrderAsync(id, ct);
+        return NoContent();
+    }
+
     [HttpGet("customer/{customerId:long}")]
     public async Task<ActionResult<IEnumerable<OrderDto>>> GetByCustomer(long customerId, CancellationToken ct)
     {
@@ -28,12 +35,7 @@ public class OrdersController(IOrderService orderService) : ControllerBase
     [HttpPost]
     public async Task<ActionResult<long>> Create([FromBody] CreateOrderRequest request, CancellationToken ct)
     {
-        var orderId = await orderService.CreateOrderAsync(
-            request.CustomerId,
-            request.PromotionId,
-            request.Items.Select(i => new OrderItemDto(0, i.ProductId, string.Empty, 0, i.Units)),
-            ct);
-
+        var orderId = await orderService.CreateOrderAsync(request, ct);
         return CreatedAtAction(nameof(GetById), new { id = orderId }, orderId);
     }
 

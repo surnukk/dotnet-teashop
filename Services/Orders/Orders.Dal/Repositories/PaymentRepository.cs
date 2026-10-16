@@ -12,27 +12,27 @@ namespace Orders.Dal.Repositories;
 
 public sealed class PaymentRepository : BaseDapperRepository<PaymentRecord>, IPaymentRepository
 {
-    private const string Columns = "PaymentID, OrderID, Amount, PaymentMethod, PaymentStatus, TransactionDate";
+    private const string Columns = "OrderID, PaymentMethod, Amount, PaymentStatus, TransactionDate";
 
     public PaymentRepository(SqlConnection c, Func<SqlTransaction?> tx)
-        : base(c, tx, "dbo.Payments", "PaymentID", Columns, softDelete: false) { }
+        : base(c, tx, "dbo.PaymentRecords", "OrderID", Columns, softDelete: false) { }
 
     protected override string InsertSql => @"
-        INSERT INTO dbo.Payments (OrderID, Amount, PaymentMethod, PaymentStatus, TransactionDate)
-        OUTPUT INSERTED.PaymentID
-        VALUES (@OrderID, @Amount, @PaymentMethod, @PaymentStatus, @TransactionDate)";
+        INSERT INTO dbo.PaymentRecords (OrderID, PaymentMethod, Amount, PaymentStatus, TransactionDate)
+        OUTPUT INSERTED.OrderID
+        VALUES (@OrderID, @PaymentMethod, @Amount, @PaymentStatus, @TransactionDate)";
 
     protected override string UpdateSql => @"
-        UPDATE dbo.Payments
-        SET OrderID = @OrderID, Amount = @Amount, PaymentMethod = @PaymentMethod,
+        UPDATE dbo.PaymentRecords
+        SET PaymentMethod = @PaymentMethod, Amount = @Amount,
             PaymentStatus = @PaymentStatus, TransactionDate = @TransactionDate
-        WHERE PaymentID = @PaymentID";
+        WHERE OrderID = @OrderID";
 
     public async Task<PaymentRecord?> GetByOrderIdAsync(long orderId, CancellationToken ct = default)
     {
         await EnsureOpenAsync(ct);
         return await Connection.QuerySingleOrDefaultAsync<PaymentRecord>(Command(
-            $"SELECT {Columns} FROM dbo.Payments WHERE OrderID = @OrderId",
+            $"SELECT {Columns} FROM dbo.PaymentRecords WHERE OrderID = @OrderId",
             new { OrderId = orderId }, ct));
     }
 }

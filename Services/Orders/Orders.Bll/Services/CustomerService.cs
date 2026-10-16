@@ -39,9 +39,7 @@ public class CustomerService : ICustomerService
     public async Task<long> CreateCustomerAsync(UpsertCustomerRequest request, CancellationToken ct = default)
     {
         var customer = _mapper.Map<Customer>(request);
-        await _uow.Customers.AddAsync(customer, ct);
-        await _uow.CommitAsync(ct);
-        return customer.CustomerID;
+        return await _uow.Customers.AddAsync(customer, ct);
     }
 
     public async Task UpdateAsync(long customerId, UpsertCustomerRequest request, CancellationToken ct = default)
@@ -51,15 +49,13 @@ public class CustomerService : ICustomerService
 
         _mapper.Map(request, customer);
         await _uow.Customers.UpdateAsync(customer, ct);
-        await _uow.CommitAsync(ct);
     }
 
     public async Task DeleteAsync(long customerId, CancellationToken ct = default)
     {
-        var customer = await _uow.Customers.GetByIdAsync(customerId, ct)
-                       ?? throw new NotFoundException($"Customer {customerId} not found");
+        _ = await _uow.Customers.GetByIdAsync(customerId, ct)
+            ?? throw new NotFoundException($"Customer {customerId} not found");
 
         await _uow.Customers.DeleteAsync(customerId, ct);
-        await _uow.CommitAsync(ct);
     }
 }

@@ -66,7 +66,7 @@ public sealed class CustomerRepository : RepositoryBase, ICustomerRepository
         await using var command = new SqlCommand(sql, Connection, Transaction);
         AddWriteParameters(command, customer);
 
-        return (long)(await command.ExecuteScalarAsync(ct))!;
+        return await ExecuteAsync(async () => (long)(await command.ExecuteScalarAsync(ct))!);
     }
 
     public async Task<bool> UpdateAsync(Customer customer, CancellationToken ct = default)
@@ -83,7 +83,7 @@ public sealed class CustomerRepository : RepositoryBase, ICustomerRepository
         AddWriteParameters(command, customer);
         command.Parameters.Add("@Id", SqlDbType.BigInt).Value = customer.CustomerID;
 
-        return await command.ExecuteNonQueryAsync(ct) > 0;
+        return await ExecuteAsync(async () => await command.ExecuteNonQueryAsync(ct) > 0);
     }
 
     public async Task<bool> DeleteAsync(long id, CancellationToken ct = default)
@@ -97,7 +97,7 @@ public sealed class CustomerRepository : RepositoryBase, ICustomerRepository
         await using var command = new SqlCommand(sql, Connection, Transaction);
         command.Parameters.Add("@Id", SqlDbType.BigInt).Value = id;
 
-        return await command.ExecuteNonQueryAsync(ct) > 0;
+        return await ExecuteAsync(async () => await command.ExecuteNonQueryAsync(ct) > 0);
     }
 
     private static void AddWriteParameters(SqlCommand command, Customer c)

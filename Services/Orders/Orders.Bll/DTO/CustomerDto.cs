@@ -26,6 +26,10 @@ namespace Orders.Bll.DTO
         public string Email { get; set; } = string.Empty;
 
         [Phone]
-        public string? Phone { get; set; }
+        [StringLength(20)]
+        public string? PhoneNumber { get; set; }
+
+        [StringLength(255)]
+        public string? DeliveryAddress { get; set; }
     }
 }
