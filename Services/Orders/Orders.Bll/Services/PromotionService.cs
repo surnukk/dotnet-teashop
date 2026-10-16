@@ -2,6 +2,8 @@
 using Orders.Bll.DTO;
 using Orders.Bll.Services;
 using Orders.Dal.Interfaces;
+using Orders.Domain.Exceptions;
+using Orders.Domain.Models;
 
 namespace Orders.Bll.Services;
 
@@ -32,5 +34,37 @@ public class PromotionService : IPromotionService
     {
         var promos = await _uow.Promotions.GetActivePromotionsAsync(ct);
         return _mapper.Map<IEnumerable<PromotionDto>>(promos);
+    }
+
+    public async Task<long> CreateAsync(UpsertPromotionRequest request, CancellationToken ct = default)
+    {
+        ValidateDates(request);
+        var promo = _mapper.Map<Promotion>(request);
+        return await _uow.Promotions.AddAsync(promo, ct);
+    }
+
+    public async Task UpdateAsync(long promotionId, UpsertPromotionRequest request, CancellationToken ct = default)
+    {
+        ValidateDates(request);
+
+        var promo = await _uow.Promotions.GetByIdAsync(promotionId, ct)
+                    ?? throw new NotFoundException($"Promotion {promotionId} not found");
+
+        _mapper.Map(request, promo);
+        await _uow.Promotions.UpdateAsync(promo, ct);
+    }
+
+    public async Task DeleteAsync(long promotionId, CancellationToken ct = default)
+    {
+        _ = await _uow.Promotions.GetByIdAsync(promotionId, ct)
+            ?? throw new NotFoundException($"Promotion {promotionId} not found");
+
+        await _uow.Promotions.DeleteAsync(promotionId, ct);
+    }
+
+    private static void ValidateDates(UpsertPromotionRequest request)
+    {
+        if (request.EndDate <= request.StartDate)
+            throw new ValidationException("EndDate must be greater than StartDate");
     }
 }

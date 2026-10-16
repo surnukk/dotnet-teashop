@@ -14,5 +14,4 @@ public interface IProductService
 {
     Task<ProductDto?> GetByIdAsync(long productId, CancellationToken ct = default);
     Task<IEnumerable<ProductDto>> GetAllAsync(CancellationToken ct = default);
-    Task<bool> CheckStockAsync(long productId, int requiredUnits, CancellationToken ct = default);
 }

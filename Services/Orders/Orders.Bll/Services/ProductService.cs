@@ -27,10 +27,4 @@ public class ProductService : IProductService
         var products = await _uow.Products.GetAllAsync(ct);
         return _mapper.Map<IEnumerable<ProductDto>>(products);
     }
-
-    public async Task<bool> CheckStockAsync(long productId, int requiredUnits, CancellationToken ct = default)
-    {
-        var product = await _uow.Products.GetByIdAsync(productId, ct);
-        return product != null;
-    }
 }

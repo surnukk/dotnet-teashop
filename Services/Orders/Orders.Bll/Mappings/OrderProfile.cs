@@ -23,5 +23,8 @@ public class OrderProfile : Profile
         CreateMap<UpsertCustomerRequest, Customer>()
             .ForMember(d => d.CustomerID, o => o.Ignore())
             .ForMember(d => d.IsActive, o => o.Ignore());
+
+        CreateMap<UpsertPromotionRequest, Promotion>()
+            .ForMember(d => d.PromotionID, o => o.Ignore());
     }
 }

@@ -28,12 +28,4 @@ public class ProductsController(IProductService productService) : ControllerBase
         var products = await productService.GetAllAsync(ct);
         return Ok(products);
     }
-
-    [HttpGet("{id:long}/check-stock")]
-    [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
-    public async Task<ActionResult<bool>> CheckStock(long id, [FromQuery] int units, CancellationToken ct)
-    {
-        var inStock = await productService.CheckStockAsync(id, units, ct);
-        return Ok(inStock);
-    }
 }
