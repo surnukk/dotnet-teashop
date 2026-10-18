@@ -22,4 +22,7 @@ public class CategoryRepository(AppDbContext context)
             .LoadAsync(ct); 
         return category;
     }
+
+    public Task<bool> ExistsByNameAsync(string categoryName, int? excludeId = null, CancellationToken ct = default)
+    => Set.AnyAsync(c => c.CategoryName == categoryName && c.CategoryId != excludeId, ct);
 }

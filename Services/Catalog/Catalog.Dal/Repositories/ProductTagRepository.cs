@@ -20,4 +20,7 @@ public class ProductTagRepository(AppDbContext context)
             .Select(pt => pt.Product)
             .AsNoTracking()
             .ToListAsync(ct);
+
+    public Task<ProductTag?> GetAsync(int productId, int tagId, CancellationToken ct = default)
+    => Set.FirstOrDefaultAsync(pt => pt.ProductId == productId && pt.TagId == tagId, ct);
 }

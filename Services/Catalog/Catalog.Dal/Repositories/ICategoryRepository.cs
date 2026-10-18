@@ -10,4 +10,5 @@ namespace Catalog.Dal.Repositories;
 public interface ICategoryRepository : IGenericRepository<Category>
 {
     Task<Category?> GetWithProductsAsync(int id, CancellationToken ct = default);
+    Task<bool> ExistsByNameAsync(string categoryName, int? excludeId = null, CancellationToken ct = default);
 }

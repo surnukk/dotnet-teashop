@@ -11,4 +11,6 @@ public interface IProductTagRepository : IGenericRepository<ProductTag>
 {
     Task<IReadOnlyList<Product>> GetRecentlyAddedAsync(
         string tagName, DateTime since, CancellationToken ct = default);
+
+    Task<ProductTag?> GetAsync(int productId, int tagId, CancellationToken ct = default);
 }

@@ -23,4 +23,12 @@ public class Category
         CategoryName = categoryName.Trim();
         Descrip = descrip;
     }
+
+    public void Update(string categoryName, string? descrip)
+    {
+        if (string.IsNullOrWhiteSpace(categoryName))
+            throw new DomainException("Category name must not be empty");
+        CategoryName = categoryName.Trim();
+        Descrip = descrip;
+    }
 }

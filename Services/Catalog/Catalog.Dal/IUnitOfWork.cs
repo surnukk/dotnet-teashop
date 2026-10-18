@@ -12,6 +12,7 @@ public interface IUnitOfWork
     IProductRepository Products { get; }
     ICategoryRepository Categories { get; }
     IProductTagRepository ProductTags { get; }
+    ITagRepository Tags { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }

@@ -157,6 +157,8 @@ namespace Catalog.Dal.Migrations
 
                     b.HasKey("ImageId");
 
+                    b.HasIndex(new[] { "ProductId" }, "IX_ProductImages_ProductId");
+
                     b.HasIndex(new[] { "ProductId" }, "UX_ProductImages_Main")
                         .IsUnique()
                         .HasFilter("[IsMain] = 1");

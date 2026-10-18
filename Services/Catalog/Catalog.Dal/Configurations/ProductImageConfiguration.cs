@@ -24,5 +24,7 @@ public class ProductImageConfiguration : IEntityTypeConfiguration<ProductImage>
         builder.HasIndex(i => i.ProductId, "UX_ProductImages_Main")
                .IsUnique()
                .HasFilter("[IsMain] = 1");
+
+        builder.HasIndex(i => i.ProductId, "IX_ProductImages_ProductId");
     }
 }
