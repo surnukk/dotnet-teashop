@@ -1,5 +1,6 @@
 ﻿using Catalog.Bll.DTO;
 using Catalog.Bll.Services;
+using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Catalog.Api.Controllers;
@@ -8,11 +9,21 @@ namespace Catalog.Api.Controllers;
 [Route("api/products")]
 public class ProductsController(IProductService service) : ControllerBase
 {
-    /// <summary>Список усіх товарів.</summary>
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<ProductDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<ProductDto>>> GetAll(CancellationToken ct)
-        => Ok(await service.GetAllAsync(ct));
+    [ProducesResponseType(typeof(PagedResult<ProductDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<PagedResult<ProductDto>>> GetList(
+        [FromQuery] ProductQuery query,
+        [FromServices] IValidator<ProductQuery> validator,
+        CancellationToken ct)
+    {
+        if (await ValidateAsync(validator, query, ct) is { } invalid) return invalid;
+
+        var result = await service.GetListAsync(query, ct);
+        Response.Headers["X-Total-Count"] = result.TotalCount.ToString();
+        Response.Headers["X-Total-Pages"] = result.TotalPages.ToString();
+        return Ok(result);
+    }
 
     /// <summary>Картка товару з деталями, картинками й тегами (Eager Loading).</summary>
     [HttpGet("{id:int}")]
@@ -24,11 +35,16 @@ public class ProductsController(IProductService service) : ControllerBase
     /// <summary>Створити товар. Назва має бути унікальною.</summary>
     [HttpPost]
     [ProducesResponseType(typeof(ProductDto), StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<ProductDto>> Create(CreateProductDto input, CancellationToken ct)
+    public async Task<ActionResult<ProductDto>> Create(
+        CreateProductDto input,
+        [FromServices] IValidator<CreateProductDto> validator,
+        CancellationToken ct)
     {
+        if (await ValidateAsync(validator, input, ct) is { } invalid) return invalid;
+
         var created = await service.CreateAsync(input, ct);
         return CreatedAtAction(nameof(GetById), new { id = created.ProductId }, created);
     }
@@ -36,9 +52,8 @@ public class ProductsController(IProductService service) : ControllerBase
     /// <summary>Змінити ціну товару.</summary>
     [HttpPut("{id:int}/price")]
     [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<ProductDto>> ChangePrice(
         int id, ChangePriceDto input, CancellationToken ct)
         => Ok(await service.ChangePriceAsync(id, input, ct));
@@ -46,9 +61,8 @@ public class ProductsController(IProductService service) : ControllerBase
     /// <summary>Поповнити залишок.</summary>
     [HttpPost("{id:int}/stock/add")]
     [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<ProductDto>> AddStock(
         int id, StockChangeDto input, CancellationToken ct)
         => Ok(await service.AddStockAsync(id, input, ct));
@@ -56,7 +70,7 @@ public class ProductsController(IProductService service) : ControllerBase
     /// <summary>Списати залишок. Не можна списати більше, ніж є.</summary>
     [HttpPost("{id:int}/stock/remove")]
     [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<ProductDto>> RemoveStock(
@@ -92,5 +106,15 @@ public class ProductsController(IProductService service) : ControllerBase
     {
         await service.RemoveTagAsync(id, tagId, ct);
         return NoContent();
+    }
+
+    // явний виклик FluentValidation: помилки у форматі ValidationProblemDetails
+    private async Task<ActionResult?> ValidateAsync<T>(
+        IValidator<T> validator, T instance, CancellationToken ct)
+    {
+        var result = await validator.ValidateAsync(instance, ct);
+        return result.IsValid
+            ? null
+            : ValidationProblem(new ValidationProblemDetails(result.ToDictionary()));
     }
 }

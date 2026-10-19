@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.ComponentModel.DataAnnotations;
 
 namespace Catalog.Bll.DTO;
 
@@ -22,5 +23,9 @@ public record ProductDetailsDto(int ProductId, string ProductName, string Catego
                                 List<TagDto> Tags);
 
 public record CreateProductDto(int CategoryId, string ProductName, decimal Price);
-public record ChangePriceDto(decimal Price);
-public record StockChangeDto(int Quantity);
+
+public record ChangePriceDto(
+    [Range(typeof(decimal), "0.01", "1000000")] decimal Price);
+
+public record StockChangeDto(
+    [Range(1, 100000)] int Quantity);

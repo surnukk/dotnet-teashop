@@ -23,5 +23,12 @@ public class CategoryConfiguration : IEntityTypeConfiguration<Category>
         builder.Property(c => c.Descrip).HasMaxLength(500);
 
         builder.HasIndex(c => c.CategoryName).IsUnique();
+
+        builder.HasData(
+            new { CategoryId = 1, CategoryName = "Green Tea", Descrip = "Fresh and grassy loose leaf green teas" },
+            new { CategoryId = 2, CategoryName = "Black Tea", Descrip = "Strong and full-bodied fermented teas" },
+            new { CategoryId = 3, CategoryName = "Puerh Tea", Descrip = "Aged and fermented compressed dark teas" },
+            new { CategoryId = 4, CategoryName = "Oolong Tea", Descrip = "Partially oxidized semi-fermented teas" },
+            new { CategoryId = 5, CategoryName = "Teaware & Accessories", Descrip = "Ceramic gaiwans, pots, and cups for brewing" });
     }
 }

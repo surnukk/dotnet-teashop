@@ -11,4 +11,6 @@ public interface IProductRepository : IGenericRepository<Product>
 {
     Task<Product?> GetWithDetailsAsync(int id, CancellationToken ct = default);
     Task<bool> ExistsByNameAsync(string productName, CancellationToken ct = default);
+    Task<(IReadOnlyList<Product> Items, int TotalCount)> GetPagedAsync(
+    ProductFilter filter, CancellationToken ct = default);
 }

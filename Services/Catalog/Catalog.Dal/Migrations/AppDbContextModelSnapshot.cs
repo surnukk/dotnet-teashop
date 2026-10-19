@@ -48,6 +48,38 @@ namespace Catalog.Dal.Migrations
                         {
                             t.HasCheckConstraint("CK_Categories_Name", "len(ltrim(rtrim([CategoryName]))) > 0");
                         });
+
+                    b.HasData(
+                        new
+                        {
+                            CategoryId = 1,
+                            CategoryName = "Green Tea",
+                            Descrip = "Fresh and grassy loose leaf green teas"
+                        },
+                        new
+                        {
+                            CategoryId = 2,
+                            CategoryName = "Black Tea",
+                            Descrip = "Strong and full-bodied fermented teas"
+                        },
+                        new
+                        {
+                            CategoryId = 3,
+                            CategoryName = "Puerh Tea",
+                            Descrip = "Aged and fermented compressed dark teas"
+                        },
+                        new
+                        {
+                            CategoryId = 4,
+                            CategoryName = "Oolong Tea",
+                            Descrip = "Partially oxidized semi-fermented teas"
+                        },
+                        new
+                        {
+                            CategoryId = 5,
+                            CategoryName = "Teaware & Accessories",
+                            Descrip = "Ceramic gaiwans, pots, and cups for brewing"
+                        });
                 });
 
             modelBuilder.Entity("Catalog.Domain.Product", b =>
@@ -211,6 +243,33 @@ namespace Catalog.Dal.Migrations
                     b.ToTable("Tags", null, t =>
                         {
                             t.HasCheckConstraint("CK_Tags_Name", "len(ltrim(rtrim([TagName]))) > 0");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            TagId = 1,
+                            TagName = "Organic"
+                        },
+                        new
+                        {
+                            TagId = 2,
+                            TagName = "Bestseller"
+                        },
+                        new
+                        {
+                            TagId = 3,
+                            TagName = "New"
+                        },
+                        new
+                        {
+                            TagId = 4,
+                            TagName = "Premium"
+                        },
+                        new
+                        {
+                            TagId = 5,
+                            TagName = "Limited Edition"
                         });
                 });
 

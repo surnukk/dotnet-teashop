@@ -1,21 +1,37 @@
-﻿using System;
+﻿using AutoMapper;
+using Catalog.Bll.DTO;
+using Catalog.Dal;
+using Catalog.Dal.Repositories;
+using Catalog.Domain;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using AutoMapper;
-using Catalog.Bll.DTO;
-using Catalog.Dal;
-using Catalog.Domain;
 
 namespace Catalog.Bll.Services;
 
 public class ProductService(IUnitOfWork uow, IMapper mapper) : IProductService
 {
-    public async Task<IReadOnlyList<ProductDto>> GetAllAsync(CancellationToken ct)
+    public async Task<PagedResult<ProductDto>> GetListAsync(ProductQuery q, CancellationToken ct)
     {
-        var products = await uow.Products.GetAllAsync(ct);
-        return mapper.Map<List<ProductDto>>(products);
+        var page = Math.Max(q.Page, 1);
+        var pageSize = Math.Clamp(q.PageSize, 1, 100);
+
+        var sortBy = q.SortBy?.ToLowerInvariant() switch
+        {
+            "price" => "price",
+            "stock" => "stock",
+            _ => "name"
+        };
+        var descending = string.Equals(q.SortDir, "desc", StringComparison.OrdinalIgnoreCase);
+
+        var filter = new ProductFilter(page, pageSize, q.Search, q.CategoryId, q.TagId,
+                                       q.MinPrice, q.MaxPrice, q.IsAvailable, sortBy, descending);
+
+        var (items, total) = await uow.Products.GetPagedAsync(filter, ct);
+
+        return new PagedResult<ProductDto>(mapper.Map<List<ProductDto>>(items), total, page, pageSize);
     }
 
     // Eager Loading: картка товару одним запитом

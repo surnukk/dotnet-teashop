@@ -21,5 +21,12 @@ public class TagConfiguration : IEntityTypeConfiguration<Tag>
         builder.Property(t => t.TagName).IsRequired().HasMaxLength(50);
 
         builder.HasIndex(t => t.TagName).IsUnique();
+
+        builder.HasData(
+            new Tag { TagId = 1, TagName = "Organic" },
+            new Tag { TagId = 2, TagName = "Bestseller" },
+            new Tag { TagId = 3, TagName = "New" },
+            new Tag { TagId = 4, TagName = "Premium" },
+            new Tag { TagId = 5, TagName = "Limited Edition" });
     }
 }

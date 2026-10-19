@@ -10,7 +10,7 @@ namespace Catalog.Bll.Services;
 
 public interface IProductService
 {
-    Task<IReadOnlyList<ProductDto>> GetAllAsync(CancellationToken ct);
+    Task<PagedResult<ProductDto>> GetListAsync(ProductQuery query, CancellationToken ct);
     Task<ProductDetailsDto> GetByIdAsync(int id, CancellationToken ct);
     Task<ProductDto> CreateAsync(CreateProductDto input, CancellationToken ct);
     Task<ProductDto> ChangePriceAsync(int id, ChangePriceDto input, CancellationToken ct);
