@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Catalog.Dal.Specifications;
 
 namespace Catalog.Bll.Services;
 
@@ -29,7 +30,8 @@ public class ProductService(IUnitOfWork uow, IMapper mapper) : IProductService
         var filter = new ProductFilter(page, pageSize, q.Search, q.CategoryId, q.TagId,
                                        q.MinPrice, q.MaxPrice, q.IsAvailable, sortBy, descending);
 
-        var (items, total) = await uow.Products.GetPagedAsync(filter, ct);
+        var items = await uow.Products.ListAsync(new ProductsPageSpec(filter), ct);
+        var total = await uow.Products.CountAsync(new ProductsFilterSpec(filter), ct);
 
         return new PagedResult<ProductDto>(mapper.Map<List<ProductDto>>(items), total, page, pageSize);
     }

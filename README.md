@@ -18,7 +18,6 @@
 
 
 ## 1.3. Таблиця політики дублювання даних
-
 | Поле | Де зберігається | Джерело (власник даних) | Політика узгодженості |
 |---|---|---|---|
 | OrderItems.ProductID | EastLeaf_OrderDB | Product (EastLeaf_CatalogDB) | Логічне посилання за ідентифікатором, без FK між базами |
@@ -126,7 +125,6 @@ Platform.slnx
 
 
 ## 2.5. Приклади запитів (cURL та Postman)
-
 Основні ендпоїнти сервісу замовлень та клієнтів доступні через Swagger UI або безпосередньо через HTTP-запити.
 
 ### Отримати інформацію про клієнта за ID
@@ -137,8 +135,10 @@ Platform.slnx
 curl -X 'GET' \
   'https://localhost:7271/api/customers/1' \
   -H 'accept: application/json'
-Приклад успішної відповіді (200 OK):
-JSON
+```
+
+**Приклад успішної відповіді (200 OK):**
+```json
 {
   "customerID": 1,
   "firstName": "Olena",
@@ -148,10 +148,13 @@ JSON
   "deliveryAddress": "Kyiv, Khreshch st., 1",
   "isActive": true
 }
-Створити нового клієнта
-HTTP Request: POST /api/customers
-cURL команда:
-Bash
+```
+
+### Створити нового клієнта
+**HTTP Request:** `POST /api/customers`
+
+**cURL команда:**
+```bash
 curl -X 'POST' \
   'https://localhost:7271/api/customers' \
   -H 'accept: application/json' \
@@ -164,10 +167,11 @@ curl -X 'POST' \
     "deliveryAddress": "Lviv, Svobody av., 10",
     "isActive": true
   }'
+```
 
-Приклад успішної відповіді (201 Created):
-Headers: Location: /api/customers/2
-JSON
+**Приклад успішної відповіді (201 Created):**
+Headers: `Location: /api/customers/2`
+```json
 {
   "customerID": 2,
   "firstName": "Dmytro",
@@ -177,3 +181,208 @@ JSON
   "deliveryAddress": "Lviv, Svobody av., 10",
   "isActive": true
 }
+```
+
+
+## 3. Лаб. 03: мікросервіс Catalog (EF Core Code First, тришарова архітектура)
+
+Сервіс каталогу товарів (проєкт №2 з Лаб. 01): чай, посуд і набори з категоріями, деталями, зображеннями та тегами. Побудований на **EF Core 8 (Code First)**, використовує репозиторії та Unit of Work, DTO з AutoMapper, валідацію, централізовану обробку помилок, Serilog і шаблон Specification.
+
+### 3.1. Схема проєкту
+```text
+Platform.slnx
+├── Platform.AppHost/             оркестрація Aspire: orders-api та catalog-api
+└── Services/Catalog/
+    ├── Catalog.Api/              Web/API: контролери (Products, Categories, Tags), Program.cs,
+    │                             GlobalExceptionHandler (ProblemDetails), Serilog, Swagger
+    ├── Catalog.Bll/              сервіси, DTO, MappingProfile (AutoMapper), валідатори (FluentValidation),
+    │                             ProductQuery і PagedResult
+    ├── Catalog.Dal/              AppDbContext, Configurations (Fluent API), Migrations,
+    │                             репозиторії, Unit of Work, Specifications (Ardalis), DbInitializer
+    └── Catalog.Domain/           сутності з бізнес-правилами та доменні винятки
+```
+Залежності йдуть в один бік: **Api -> Bll -> Dal -> Domain**. Контролер не звертається до репозиторіїв напряму, жодного запиту до БД поза `Catalog.Dal` немає.
+
+| Шар | Що містить |
+|---|---|
+| Catalog.Domain | `Category`, `Product`, `ProductDetail`, `ProductImage`, `Tag`, `ProductTag`; приватні сеттери й бізнес-правила в самих сутностях (`ChangePrice`, `AddStock`, `RemoveStock`); `DomainException`, `ConflictException`, `EntityNotFoundException` |
+| Catalog.Dal | `AppDbContext`, конфігурації Fluent API (CHECK-обмеження, індекси, seed довідників), міграції; `GenericRepository<T>`, `ProductRepository`, `CategoryRepository`, `TagRepository`, `ProductTagRepository`; `UnitOfWork`; специфікації `ProductsFilterSpec`, `ProductsPageSpec`, `ProductWithDetailsSpec`; `DbInitializer` |
+| Catalog.Bll | `ProductService`, `CategoryService`, `TagService`; DTO; `MappingProfile`; `CreateProductDtoValidator`, `ProductQueryValidator`; `ProductQuery`, `PagedResult<T>` |
+| Catalog.Api | `ProductsController`, `CategoriesController`, `TagsController`; `GlobalExceptionHandler`; конфігурація Serilog |
+
+
+### 3.2. Модель даних
+Шість таблиць зі всіма типами зв'язків:
+
+| Зв'язок | Таблиці |
+|---|---|
+| 1:1 | `Products` - `ProductDetails` |
+| 1:N | `Categories` - `Products`, `Products` - `ProductImages` |
+| M:N | `Products` - `Tags` через `ProductTags` (із полем `AddedDate`, яке ставить БД) |
+
+Відмінності від скриптів Лаб. 01 (`db/p2`), зроблені свідомо:
+- таблиця `BrewingGuides` у моделі EF не реалізована (гіди заварювання можуть переїхати в документну БД);
+- замість `Sku` товар ідентифікується унікальною назвою `ProductName`;
+- службові колонки (аудит, `IsDeleted`, `rowversion`) у моделі EF не використовуються.
+
+
+### 3.3. Що зроблено в Лаб. 03
+1. **Code First.** Сутності, Fluent API-конфігурації, міграції `InitialCreate` і `SeedReferenceData`; SQL-скрипт міграції лежить у `Catalog.Dal/Migrations/InitialCreate.sql`.
+2. **Репозиторії та Unit of Work.** Один `UnitOfWork` (і один `DbContext`) на HTTP-запит. Три стратегії завантаження пов'язаних даних: Eager (картка товару одним запитом), Explicit (категорія з товарами двома запитами) і M:N через `ProductTag`.
+3. **DTO, AutoMapper, API.** Окремі DTO для читання та запису, `MappingProfile`, три контролери. Ліцензійний ключ AutoMapper зберігається в User Secrets.
+4. **Seeding.** Довідники (5 категорій, 5 тегів) додаються через `HasData`; тестові товари додає `DbInitializer` (ідемпотентно, у транзакції, у Production не запускається).
+5. **Пагінація, фільтрація, сортування.** Виконуються на рівні SQL (`IQueryable`), відповідь містить метадані сторінки.
+6. **Валідація.** Прості правила: DataAnnotations; складні: FluentValidation (окремі класи-валідатори). Помилки повертаються як `ValidationProblemDetails` (400).
+7. **Обробка помилок.** Один глобальний обробник `GlobalExceptionHandler` (`IExceptionHandler` + `AddProblemDetails`).
+8. **Логування.** Serilog зі структурованими логами, `CorrelationId`, `RequestPath`, `UserId`, логами SQL-запитів EF Core.
+9. **Specification.** Запити винесені в специфікації (Ardalis.Specification), репозиторій лише застосовує їх.
+
+
+### 3.4. Що потрібно для запуску
+1. **.NET 8 SDK** або новіший (проєкт `Catalog.Api` збирається під `net8.0`).
+2. **Microsoft SQL Server** (локальний інстанс, LocalDB, Express або Docker).
+3. **Інструмент dotnet-ef** для міграцій: `dotnet tool install --global dotnet-ef --version 8.*`.
+4. **Ліцензійний ключ AutoMapper** (Community-ліцензія безкоштовна). У репозиторій ключ **не комітиться**, його задають у User Secrets:
+```bash
+dotnet user-secrets set "AutoMapper:LicenseKey" "<ваш-ключ>" --project Services/Catalog/Catalog.Api
+```
+5. **Рядок підключення** `ConnectionStrings:CatalogDb` у `Services/Catalog/Catalog.Api/appsettings.json`. Для локального SQL Server з Windows-автентифікацією це приблизно:
+```text
+Server=localhost;Database=EastLeaf_CatalogDB;Trusted_Connection=True;TrustServerCertificate=True
+```
+Підключення можна перевизначити через User Secrets або змінну оточення `ConnectionStrings__CatalogDb`.
+
+> **Важливо.** Скрипт `db/p2/schema.sql` з Лаб. 01 видаляє й перестворює базу `EastLeaf_CatalogDB`, яку тепер створює і веде EF Core. Для Лаб. 03 базу створюють лише міграції EF, а скрипти `db/p2` одночасно з ними не виконують. Якщо скрипт уже запускався, зверху на цю базу міграції не накладуться: спершу видаліть базу.
+
+
+### 3.5. Міграції EF Core
+Усі команди виконуються з кореня репозиторію. `Catalog.Dal` містить міграції, `Catalog.Api` є стартовим проєктом.
+
+**Застосувати міграції до бази** (створить базу, якщо її немає):
+```bash
+dotnet ef database update --project Services/Catalog/Catalog.Dal --startup-project Services/Catalog/Catalog.Api
+```
+
+**Додати нову міграцію** після зміни моделі:
+```bash
+dotnet ef migrations add <НазваМіграції> --project Services/Catalog/Catalog.Dal --startup-project Services/Catalog/Catalog.Api
+```
+
+**Згенерувати SQL-скрипт** усіх міграцій:
+```bash
+dotnet ef migrations script --idempotent --project Services/Catalog/Catalog.Dal --startup-project Services/Catalog/Catalog.Api -o Services/Catalog/Catalog.Dal/Migrations/InitialCreate.sql
+```
+
+Міграції також застосовуються автоматично при старті застосунку (`MigrateAsync`). Команда `dotnet ef database update` не має параметра `--environment`: середовище задається змінною `ASPNETCORE_ENVIRONMENT`.
+
+Історія застосованих міграцій: `SELECT * FROM __EFMigrationsHistory`.
+
+
+### 3.6. Запуск і перевірка
+**Варіант 1: лише Catalog.Api.** Встановіть `Catalog.Api` стартовим проєктом і запустіть (профіль `https`). Swagger відкривається за адресою `https://localhost:7208/swagger`.
+
+**Варіант 2: через Aspire.** Встановіть `Platform.AppHost` стартовим проєктом. У ньому зареєстровано `catalog-api` поруч з `orders-api`; Swagger відкривається за посиланням у колонці **Endpoints** в Aspire Dashboard.
+
+При старті в середовищі Development застосунок застосовує міграції та запускає `DbInitializer`. Повторний запуск не створює дублікатів: сідер перевіряє наявність товарів і завершується, якщо вони є. У Production сідінг вимкнений.
+
+
+### 3.7. Ендпоінти й статуси відповідей
+| Метод і шлях | Успіх | Помилки |
+|---|---|---|
+| `GET /api/products` (пагінація, фільтри, сортування) | 200 | 400 (невалідні параметри) |
+| `GET /api/products/{id}` (картка з деталями, зображеннями й тегами) | 200 | 404 |
+| `POST /api/products` | 201 + Location | 400, 404 (категорія не знайдена), 409 (назва вже існує) |
+| `PUT /api/products/{id}/price` | 200 | 400, 404 |
+| `POST /api/products/{id}/stock/add` | 200 | 400, 404 |
+| `POST /api/products/{id}/stock/remove` | 200 | 400, 404, 409 (недостатньо на залишку) |
+| `DELETE /api/products/{id}` | 204 | 404 |
+| `POST /api/products/{id}/tags/{tagId}` | 204 | 404, 409 (тег уже доданий) |
+| `DELETE /api/products/{id}/tags/{tagId}` | 204 | 404 |
+| `GET /api/categories`, `GET /api/categories/{id}` | 200 | 404 |
+| `POST /api/categories`, `PUT /api/categories/{id}` | 201 / 200 | 400, 404 |
+| `GET /api/tags`, `POST /api/tags` | 200 / 201 | 400 |
+
+**Параметри `GET /api/products`:** `page`, `pageSize` (1-100), `search`, `categoryId`, `tagId`, `minPrice`, `maxPrice`, `isAvailable`, `sortBy` (`name` | `price` | `stock`), `sortDir` (`asc` | `desc`).
+
+**Відповідь списку:** `items`, `totalCount`, `page`, `pageSize`, `totalPages`, `hasNext`, `hasPrevious`; ті самі підсумки дублюються в заголовках `X-Total-Count` і `X-Total-Pages`.
+
+**Відповідність винятків і HTTP-статусів** (централізований `GlobalExceptionHandler`):
+
+| Виняток | Статус |
+|---|---|
+| `EntityNotFoundException` | 404 |
+| `ValidationException` (FluentValidation) | 400 |
+| `ConflictException` | 409 |
+| `DomainException` (порушення бізнес-правила) | 409 |
+| будь-який інший | 500 (у `detail` лише загальне повідомлення; повні деталі тільки в Development) |
+
+Помилки валідації вхідних даних повертаються як `ValidationProblemDetails` (400) з переліком помилок по полях. Усі відповіді з помилками мають формат ProblemDetails (`application/problem+json`) з полями `status`, `title`, `detail`, `instance` і `traceId`.
+
+
+### 3.8. Приклади запитів
+**Список товарів: друга сторінка, сортування за ціною**
+
+`GET /api/products?page=2&pageSize=5&sortBy=price&sortDir=desc`
+```bash
+curl -X 'GET' \
+  'https://localhost:7208/api/products?page=2&pageSize=5&sortBy=price&sortDir=desc' \
+  -H 'accept: application/json'
+```
+Відповідь 200 містить `items` (до 5 товарів), `totalCount` (кількість усіх товарів за фільтром, а не лише на сторінці) і метадані сторінки; заголовки `X-Total-Count`, `X-Total-Pages`.
+
+**Створити товар**
+
+`POST /api/products`
+```bash
+curl -X 'POST' \
+  'https://localhost:7208/api/products' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "categoryId": 1,
+    "productName": "Da Hong Pao 100g",
+    "price": 350
+  }'
+```
+Відповідь 201 Created містить заголовок `Location: /api/products/{id}` і створений товар.
+
+**Помилка валідації (400):** порожня назва товару
+```json
+{
+  "title": "One or more validation errors occurred.",
+  "status": 400,
+  "errors": {
+    "ProductName": [ "'Product Name' must not be empty." ]
+  }
+}
+```
+
+**Товар не знайдено (404):** `GET /api/products/99999`
+```json
+{
+  "title": "Resource not found",
+  "status": 404,
+  "detail": "Product 99999 was not found.",
+  "instance": "/api/products/99999",
+  "traceId": "..."
+}
+```
+
+### 3.9. Логування (Serilog)
+- Налаштування: секція `Serilog` в `appsettings.json` (рівні `Default` і `Override`) і код у `Program.cs`. Змінні оточення також підтримуються, наприклад `Serilog__MinimumLevel__Default=Warning`.
+- Sink: консоль, шаблон виводить усі властивості (`{Properties:j}`).
+- У кожному рядку запиту є `CorrelationId`, `UserId` (поки немає автентифікації, значення `anonymous`) і `RequestPath`.
+- Виняток логується **один раз**, у `GlobalExceptionHandler`: 404 і 409 як `Warning`, 500 як `Error`. Стандартний лог `ExceptionHandlerMiddleware` вимкнений.
+- SQL-команди EF Core логуються на рівні `Information`. У логах видно різницю між стратегіями: Eager Loading (`GET /api/products/{id}`) виконує **один** SQL-запит, Explicit Loading (категорія з товарами) **два**, а список товарів два: `SELECT COUNT(*)` і `SELECT ... OFFSET ... FETCH`.
+
+
+### 3.10. Контрольні точки Лаб. 03
+| Перевірка | Очікуваний результат |
+|---|---|
+| `GET /api/products?page=2&pageSize=5` | правильний `totalCount`, до 5 елементів |
+| `POST /api/products` з порожньою `productName` | 400 з переліком помилок по полях |
+| `POST /api/products/{id}/stock/remove` з кількістю більшою за залишок | 409 |
+| `GET /api/products/99999` | 404 у форматі ProblemDetails |
+| повторне додавання тега до товару | 409 |
+| повторний запуск застосунку | seed-дані не дублюються |
+| SQL-лог `GET /api/products/{id}` | один запит (Eager) |
