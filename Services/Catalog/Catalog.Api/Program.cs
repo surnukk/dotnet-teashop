@@ -36,7 +36,7 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreateProductDtoValidator>(
 
 // Add services to the container.
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(o => o.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true);
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -55,8 +55,6 @@ app.UseSerilogRequestLogging(o => o.EnrichDiagnosticContext = (diag, http) =>
     diag.Set("CorrelationId", http.TraceIdentifier);
     diag.Set("UserId", http.User.Identity?.Name ?? "anonymous");
 });
-
-app.UseExceptionHandler();
 
 app.UseExceptionHandler();
 

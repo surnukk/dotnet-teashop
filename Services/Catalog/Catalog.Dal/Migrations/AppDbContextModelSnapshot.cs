@@ -109,7 +109,8 @@ namespace Catalog.Dal.Migrations
 
                     b.HasKey("ProductId");
 
-                    b.HasIndex("ProductName");
+                    b.HasIndex("ProductName")
+                        .IsUnique();
 
                     b.HasIndex("CategoryId", "IsAvailable")
                         .HasDatabaseName("IX_Products_CategoryId_IsAvailable");

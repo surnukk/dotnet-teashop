@@ -25,7 +25,7 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(p => p.ProductName).IsRequired().HasMaxLength(200);
         builder.Property(p => p.Price).HasColumnType("decimal(18,2)");
 
-        builder.HasIndex(p => p.ProductName);
+        builder.HasIndex(p => p.ProductName).IsUnique();
         builder.HasIndex(p => new { p.CategoryId, p.IsAvailable })
                .IncludeProperties(p => new { p.ProductName, p.Price })
                .HasDatabaseName("IX_Products_CategoryId_IsAvailable");
