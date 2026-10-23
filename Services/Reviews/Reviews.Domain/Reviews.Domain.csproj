@@ -10,12 +10,4 @@
     <PackageReference Include="MongoDB.Bson" Version="3.13.0" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Common\" />
-    <Folder Include="Entities\" />
-    <Folder Include="Exceptions\" />
-    <Folder Include="Interfaces\" />
-    <Folder Include="ValueObjects\" />
-  </ItemGroup>
-
 </Project>
