@@ -4,59 +4,67 @@ function upsert(collection, doc) {
   collection.replaceOne({ _id: doc._id }, doc, { upsert: true });
 }
 
+// ---- reviews (productId = Id з EastLeaf_CatalogDB; userId — рядок; version для оптимістичної конкурентності) ----
 upsert(database.reviews, {
   _id: ObjectId("66f0c2000000000000000001"),
-  productId: 4, productName: "Da Hong Pao Oolong",
-  author: { userId: 1, displayName: "Олена" },
+  productId: NumberLong(4), productName: "Da Hong Pao Oolong",
+  author: { userId: "1", displayName: "Олена" },
   rating: 5,
   text: "Глибокий мінеральний смак, витримує шість проливів.",
   comments: [{
-    author: { userId: 2, displayName: "Іван" },
+    author: { userId: "2", displayName: "Іван" },
     text: "Згоден, дуже гарний улун.",
     createdAt: ISODate("2026-10-06T09:00:00Z")
   }],
   discussionId: ObjectId("66f0c3000000000000000001"),
+  version: 0,
   createdAt: ISODate("2026-10-05T10:30:00Z")
 });
 
 upsert(database.reviews, {
   _id: ObjectId("66f0c2000000000000000002"),
-  productId: 3, productName: "Shu Pu-erh Aged 2018",
-  author: { userId: 2, displayName: "Іван" },
+  productId: NumberLong(3), productName: "Shu Pu-erh Aged 2018",
+  author: { userId: "2", displayName: "Іван" },
   rating: 4,
   text: "М'який, землистий, добре для вечора.",
+  comments: [],
+  version: 0,
   createdAt: ISODate("2026-10-08T19:10:00Z")
 });
 
 upsert(database.reviews, {
   _id: ObjectId("66f0c2000000000000000003"),
-  productId: 5, productName: "Ceramic Gaiwan Set",
-  author: { userId: 3, displayName: "Марія" },
+  productId: NumberLong(5), productName: "Ceramic Gaiwan Set",
+  author: { userId: "3", displayName: "Марія" },
   rating: 5,
   text: "Зручна гайвань, добре розкриває аромат.",
+  comments: [],
   teaware: { material: "Кераміка", capacityMl: 150 },
   pros: ["аромат", "зручний борт"],
   cons: ["нагрівається"],
+  version: 0,
   createdAt: ISODate("2026-10-09T12:45:00Z")
 });
 
+// ---- tea_discussions ----
 upsert(database.tea_discussions, {
   _id: ObjectId("66f0c3000000000000000001"),
   title: "Скільки проливів витримує Da Hong Pao?",
   category: "brewing",
-  createdBy: { userId: 1, displayName: "Олена" },
-  productIds: [4],
+  createdBy: { userId: "1", displayName: "Олена" },
+  productIds: [NumberLong(4)],
   tags: ["улун", "заварювання"],
   messageCount: 2,
   lastMessageAt: ISODate("2026-10-07T18:20:00Z"),
   pinnedMessages: [{
-    author: { userId: 1, displayName: "Олена" },
+    author: { userId: "1", displayName: "Олена" },
     text: "Починайте з 90 градусів і коротких проливів.",
     createdAt: ISODate("2026-10-05T10:35:00Z")
   }],
   createdAt: ISODate("2026-10-05T10:35:00Z")
 });
 
+// ---- tea_clubs ----
 upsert(database.tea_clubs, {
   _id: ObjectId("66f0c4000000000000000001"),
   name: "Чернівецький чайний клуб", city: "Чернівці",
