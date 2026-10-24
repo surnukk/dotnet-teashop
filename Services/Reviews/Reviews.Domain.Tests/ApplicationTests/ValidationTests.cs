@@ -13,6 +13,8 @@ using Reviews.Application.Commands.UpdateReview;
 using Reviews.Application.Common.Behaviors;
 using Reviews.Application.Queries.GetReviewById;
 using Reviews.Application.Queries.GetReviewsList;
+using NSubstitute;
+using Reviews.Domain.Interfaces;
 
 namespace Reviews.Domain.Tests;
 
@@ -20,26 +22,61 @@ public class ValidationTests
 {
     private static readonly CreateReviewCommand ValidCreate =
         new(4, "Da Hong Pao Oolong", "1", "Olena", 5, "Great tea");
+    private static CreateReviewCommandValidator NewCreateValidator(bool alreadyReviewed = false)
+    {
+        var repo = Substitute.For<IReviewRepository>();
+        repo.ExistsAsync(Arg.Any<long>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(alreadyReviewed);
+        return new CreateReviewCommandValidator(repo);
+    }
 
     [Fact]
-    public void Create_valid_command_has_no_errors()
-        => new CreateReviewCommandValidator().TestValidate(ValidCreate)
-            .ShouldNotHaveAnyValidationErrors();
+    public async Task Create_valid_command_has_no_errors()
+    {
+        var result = await NewCreateValidator().TestValidateAsync(ValidCreate);
+        result.ShouldNotHaveAnyValidationErrors();
+    }
 
     [Fact]
-    public void Create_with_rating_10_fails_on_rating()
-        => new CreateReviewCommandValidator().TestValidate(ValidCreate with { Rating = 10 })
-            .ShouldHaveValidationErrorFor(x => x.Rating);
+    public async Task Create_with_rating_10_fails_on_rating()
+    {
+        var result = await NewCreateValidator().TestValidateAsync(ValidCreate with { Rating = 10 });
+        result.ShouldHaveValidationErrorFor(x => x.Rating);
+    }
 
     [Fact]
-    public void Create_with_empty_text_fails_on_text()
-        => new CreateReviewCommandValidator().TestValidate(ValidCreate with { Text = "" })
-            .ShouldHaveValidationErrorFor(x => x.Text);
+    public async Task Create_with_empty_text_fails_on_text()
+    {
+        var result = await NewCreateValidator().TestValidateAsync(ValidCreate with { Text = "" });
+        result.ShouldHaveValidationErrorFor(x => x.Text);
+    }
 
     [Fact]
-    public void Create_with_zero_product_id_fails_on_product_id()
-        => new CreateReviewCommandValidator().TestValidate(ValidCreate with { ProductId = 0 })
-            .ShouldHaveValidationErrorFor(x => x.ProductId);
+    public async Task Create_with_zero_product_id_fails_on_product_id()
+    {
+        var result = await NewCreateValidator().TestValidateAsync(ValidCreate with { ProductId = 0 });
+        result.ShouldHaveValidationErrorFor(x => x.ProductId);
+    }
+
+    [Fact]
+    public async Task Create_when_author_already_reviewed_product_fails()
+    {
+        var result = await NewCreateValidator(alreadyReviewed: true).TestValidateAsync(ValidCreate);
+        result.ShouldHaveValidationErrorFor(x => x.AuthorId)
+              .WithErrorMessage("You have already reviewed this product");
+    }
+
+    [Fact]
+    public async Task Create_with_invalid_product_does_not_query_the_database()
+    {
+        var repo = Substitute.For<IReviewRepository>();
+        var validator = new CreateReviewCommandValidator(repo);
+
+        await validator.TestValidateAsync(ValidCreate with { ProductId = 0 });
+
+        await repo.DidNotReceive().ExistsAsync(
+            Arg.Any<long>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
 
     [Fact]
     public void Update_with_invalid_id_fails_on_id()
@@ -83,7 +120,7 @@ public class ValidationTests
             .ShouldNotHaveAnyValidationErrors();
 
     private static ValidationBehavior<CreateReviewCommand, string> NewValidationBehavior()
-        => new(new[] { new CreateReviewCommandValidator() });
+     => new(new[] { NewCreateValidator() });
 
     [Fact]
     public async Task ValidationBehavior_invalid_command_throws_and_skips_handler()

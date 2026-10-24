@@ -5,6 +5,7 @@ using Reviews.WebApi.HealthChecks;
 using Reviews.WebApi.Mapping;
 using Serilog;
 using Serilog.Events;
+using Reviews.WebApi.ExceptionHandling;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +20,9 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
 builder.Services
     .AddApplication(builder.Configuration)       // MediatR, behaviors, валідатори
     .AddInfrastructure(builder.Configuration);   // MongoDB
@@ -32,6 +36,8 @@ builder.Services.AddAutoMapper(cfg =>
 builder.Services.AddHealthChecks().AddCheck<MongoHealthCheck>("mongodb");
 
 var app = builder.Build();
+
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {
