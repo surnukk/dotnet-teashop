@@ -105,14 +105,14 @@ public class MongoRepositoryTests : MongoTestBase
 
         var raw = await RawReviews.Find(FilterDefinition<BsonDocument>.Empty).FirstAsync();
 
-        Assert.False(raw.Contains("_comments"));                      // без витоку приватного поля
-        Assert.True(raw["comments"].IsBsonArray);                     // вкладений масив
-        Assert.True(raw["comments"][0]["_id"].IsObjectId);            // коментар має власний _id
-        Assert.Equal("1", raw["author"]["userId"].AsString);          // вкладений Value Object
-        Assert.Equal(BsonType.Int32, raw["rating"].BsonType);         // Rating зберігається числом
+        Assert.False(raw.Contains("_comments")); 
+        Assert.True(raw["comments"].IsBsonArray); 
+        Assert.True(raw["comments"][0]["_id"].IsObjectId);
+        Assert.Equal("1", raw["author"]["userId"].AsString);
+        Assert.Equal(BsonType.Int32, raw["rating"].BsonType);
         Assert.Equal(BsonType.Int64, raw["productId"].BsonType);
         Assert.Equal(0, raw["version"].AsInt32);
-        Assert.All(raw.Names, n => Assert.True(n == "_id" || char.IsLower(n[0])));   // camelCase
+        Assert.All(raw.Names, n => Assert.True(n == "_id" || char.IsLower(n[0])));
     }
 
     [Fact]
@@ -130,7 +130,7 @@ public class MongoRepositoryTests : MongoTestBase
         Assert.Equal(1, raw["version"].AsInt32);
         Assert.Equal(4, raw["rating"].AsInt32);
         Assert.Equal("Changed my mind", raw["text"].AsString);
-        Assert.True(raw.Contains("teaware"));        // гнучка схема не втрачається при оновленні
+        Assert.True(raw.Contains("teaware"));
         Assert.True(raw.Contains("discussionId"));
         Assert.Single(raw["comments"].AsBsonArray);
     }
@@ -158,7 +158,7 @@ public class MongoRepositoryTests : MongoTestBase
             .StartAsync(default);
 
         var indexes = await (await Context.Reviews.Indexes.ListAsync()).ToListAsync();
-        Assert.Equal(4, indexes.Count);              // _id + 3 індекси
+        Assert.Equal(4, indexes.Count);
 
         await Repository.AddAsync(NewReview(4, "1"));
         var ex = await Assert.ThrowsAsync<MongoWriteException>(
@@ -204,7 +204,7 @@ public class MongoRepositoryTests : MongoTestBase
         Assert.Equal(2, firstPage.Items.Count);
         Assert.Single(secondPage.Items);
         Assert.Equal(4, all.TotalCount);
-        // найновіші першими
+
         Assert.True(string.CompareOrdinal(firstPage.Items[0].Id, firstPage.Items[1].Id) > 0);
     }
 
