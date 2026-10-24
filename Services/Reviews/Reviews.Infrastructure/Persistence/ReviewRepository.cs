@@ -11,7 +11,7 @@ using Reviews.Domain.Interfaces;
 
 namespace Reviews.Infrastructure.Persistence;
 
-public class ReviewRepository(MongoDbContext context) : IReviewRepository
+public class ReviewRepository(MongoDbContext context) : IReviewRepository //реалізація IReviewRepository
 {
     private readonly IMongoCollection<Review> _reviews = context.Reviews;
 

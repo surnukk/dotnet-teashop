@@ -186,7 +186,7 @@ Headers: `Location: /api/customers/2`
 
 ## 3. Лаб. 03: мікросервіс Catalog (EF Core Code First, тришарова архітектура)
 
-Сервіс каталогу товарів (проєкт №2 з Лаб. 01): чай, посуд і набори з категоріями, деталями, зображеннями та тегами. Побудований на **EF Core 8 (Code First)**, використовує репозиторії та Unit of Work, DTO з AutoMapper, валідацію, централізовану обробку помилок, Serilog і шаблон Specification.
+Сервіс каталогу товарів: чай, посуд і набори з категоріями, деталями, зображеннями та тегами. Побудований на **EF Core 8 (Code First)**, використовує репозиторії та Unit of Work, DTO з AutoMapper, валідацію, централізовану обробку помилок, Serilog і шаблон Specification.
 
 ### 3.1. Схема проєкту
 ```text
@@ -220,13 +220,8 @@ Platform.slnx
 | 1:N | `Categories` - `Products`, `Products` - `ProductImages` |
 | M:N | `Products` - `Tags` через `ProductTags` (із полем `AddedDate`, яке ставить БД) |
 
-Відмінності від скриптів Лаб. 01 (`db/p2`), зроблені свідомо:
-- таблиця `BrewingGuides` у моделі EF не реалізована (гіди заварювання можуть переїхати в документну БД);
-- замість `Sku` товар ідентифікується унікальною назвою `ProductName`;
-- службові колонки (аудит, `IsDeleted`, `rowversion`) у моделі EF не використовуються.
 
-
-### 3.3. Що зроблено в Лаб. 03
+### 3.3. Що зроблено в лабі
 1. **Code First.** Сутності, Fluent API-конфігурації, міграції `InitialCreate` і `SeedReferenceData`; SQL-скрипт міграції лежить у `Catalog.Dal/Migrations/InitialCreate.sql`.
 2. **Репозиторії та Unit of Work.** Один `UnitOfWork` (і один `DbContext`) на HTTP-запит. Три стратегії завантаження пов'язаних даних: Eager (картка товару одним запитом), Explicit (категорія з товарами двома запитами) і M:N через `ProductTag`.
 3. **DTO, AutoMapper, API.** Окремі DTO для читання та запису, `MappingProfile`, три контролери. Ліцензійний ключ AutoMapper зберігається в User Secrets.
@@ -376,13 +371,211 @@ curl -X 'POST' \
 - SQL-команди EF Core логуються на рівні `Information`. У логах видно різницю між стратегіями: Eager Loading (`GET /api/products/{id}`) виконує **один** SQL-запит, Explicit Loading (категорія з товарами) **два**, а список товарів два: `SELECT COUNT(*)` і `SELECT ... OFFSET ... FETCH`.
 
 
-### 3.10. Контрольні точки Лаб. 03
-| Перевірка | Очікуваний результат |
+## 4. Лаб. 04: мікросервіс Reviews (MongoDB, Clean Architecture, CQRS + MediatR)
+
+Сервіс відгуків: відгуки на товари з вбудованими коментарями. На відміну від тришарових сервісів Лаб. 02-03, тут застосовано **Clean Architecture**: чотири шари, де головний шар (Domain) не залежить ні від API, ні від бази даних.
+
+### 4.1. Схема проєкту
+```text
+Platform.slnx
+├── Platform.AppHost/             оркестрація Aspire: orders-api, catalog-api, reviews-api
+└── Services/Reviews/
+    ├── Reviews.Domain/           сутності, Value Objects, доменні винятки, інтерфейс репозиторію
+    ├── Reviews.Application/      команди, запити, обробники, валідатори, behaviors, DTO
+    ├── Reviews.Infrastructure/   доступ до MongoDB: контекст, BSON-мапінг, репозиторій, запити, індекси, сидінг
+    ├── Reviews.WebApi/           контролери, Program.cs, AutoMapper, обробка помилок, Swagger, health check
+    └── Reviews.Tests/            unit- та інтеграційні тести
+```
+- **Domain** містить лише доменну логіку й не має залежності навіть від драйвера MongoDB (використовується лише тип `ObjectId` з пакета `MongoDB.Bson`).
+- **Application** залежить лише від Domain. Він оголошує інтерфейси (`IReviewQueries`), а реалізація цих інтерфейсів живе в Infrastructure.
+- **Infrastructure** працює з MongoDB і реалізує інтерфейси внутрішніх шарів.
+- **WebApi** містить контролери й підключає всі шари під час старту.
+
+| Шар | Що містить |
 |---|---|
-| `GET /api/products?page=2&pageSize=5` | правильний `totalCount`, до 5 елементів |
-| `POST /api/products` з порожньою `productName` | 400 з переліком помилок по полях |
-| `POST /api/products/{id}/stock/remove` з кількістю більшою за залишок | 409 |
-| `GET /api/products/99999` | 404 у форматі ProblemDetails |
-| повторне додавання тега до товару | 409 |
-| повторний запуск застосунку | seed-дані не дублюються |
-| SQL-лог `GET /api/products/{id}` | один запит (Eager) |
+| Reviews.Domain | `BaseEntity` (Id, CreatedAt, UpdatedAt, Version), `ValueObject`; сутності `Review` і `Comment`; Value Objects `Author` і `Rating`; `DomainException`, `NotFoundException`, `ConflictException`; `IReviewRepository` |
+| Reviews.Application | команди `CreateReview`, `UpdateReview`, `DeleteReview`, `AddComment`, `RemoveComment`; запити `GetReviewById`, `GetReviewsList`; `ValidationBehavior`, `LoggingBehavior`, `PerformanceBehavior`; FluentValidation-валідатори; `ReviewDto`, `PagedResult<T>`; `IReviewQueries` |
+| Reviews.Infrastructure | `MongoDbContext`, `MongoMappings` (BsonClassMap), `RatingSerializer`, `ReviewRepository`, `ReviewQueries`; `IndexCreationService`, `ReviewSeeder`, `DataSeedingService` |
+| Reviews.WebApi | `ReviewsController`, `GlobalExceptionHandler`, `ReviewProfile` і `ReviewRequestProfile` (AutoMapper), `MongoHealthCheck`, Serilog, Swagger |
+
+
+### 4.2. Як проходить запит (CQRS + MediatR)
+Кожна операція API це окремий об'єкт: **команда** (змінює дані) або **запит** (лише читає). Контролер нічого не робить сам, а лише передає цей об'єкт у MediatR.
+
+```text
+Контролер ─► MediatR ─► Logging ─► Validation ─► Performance ─► Обробник ─► MongoDB
+```
+- **LoggingBehavior** записує в лог початок і результат запиту.
+- **ValidationBehavior** запускає всі валідатори FluentValidation. Якщо є помилки, вони збираються разом, і **обробник не викликається**.
+- **PerformanceBehavior** пише попередження, якщо обробник працює довше за 500 мс.
+
+**Чому два способи доступу до БД.** Команди працюють через `IReviewRepository` (повна сутність, бізнес-правила). Запити читання працюють через `IReviewQueries`: MongoDB сама формує готовий `ReviewDto` (проєкція), рахує кількість коментарів і виконує пагінацію (`skip/limit`), а не завантажує зайве в пам'ять.
+
+
+### 4.3. Що зроблено в лабі
+1. **Структура Clean Architecture.** Чотири проєкти з коректними посиланнями; Domain не має посилань на інші проєкти.
+2. **Доменний шар.** Сутності з приватними сеттерами та методами зміни стану (`Review.Update`, `Review.AddComment`); порушення правил кидає `DomainException`. Value Objects `Author` і `Rating` незмінні, порівнюються за значенням і перевіряються в конструкторі.
+3. **CQRS через MediatR.** Команди й запити з окремими обробниками; обробники не звертаються до `IMongoCollection` напряму.
+4. **Pipeline Behaviors і валідатори.** Валідація виконується до обробника; перевіряється коректність `ObjectId`; є асинхронне правило із запитом до MongoDB («користувач уже залишав відгук на цей товар»).
+5. **MongoDB.** Контекст налаштовується через `IOptions<MongoDbOptions>`. BSON-мапінг описаний окремо через `BsonClassMap`, тому доменні класи не містять атрибутів MongoDB. Назви полів у camelCase, рейтинг зберігається числом, а приватний список `_comments` записується як масив `comments`.
+6. **Оптимістична конкурентність.** Кожен документ має `version`. Оновлення застосовується лише до документа з очікуваною версією, інакше 409. Клієнт отримує версію в заголовку `ETag` при читанні та передає її в `If-Match` при оновленні.
+7. **Індекси** створюються автоматично при старті (див. 4.4).
+8. **Seeding.** `ReviewSeeder` додає початкові відгуки, перевіряючи, чи вони вже є; повторний запуск не створює дублікатів.
+9. **Централізована обробка помилок** (див. 4.7): доменні, валідаційні та MongoDB-винятки перетворюються на ProblemDetails з правильним статусом.
+10. **Конфігурація.** Рядок підключення й назва бази в секції `MongoDb` з окремими значеннями для Development / Staging / Production; параметри пулу й таймаутів задаються в рядку підключення (`maxPoolSize`, `serverSelectionTimeoutMS`); health check `/health` перевіряє зв'язок із MongoDB.
+
+
+### 4.4. Модель документа та індекси
+Відгук зберігається одним документом: автор і коментарі вбудовані (вони читаються разом із відгуком), а на товар є лише посилання `productId` із денормалізованою назвою `productName`.
+```json
+{
+  "_id": "66f0c2000000000000000001",
+  "productId": 4,
+  "productName": "Da Hong Pao Oolong",
+  "author": { "userId": "1", "displayName": "Olena" },
+  "rating": 5,
+  "text": "Deep mineral taste, holds up to six infusions.",
+  "comments": [
+    { "_id": "66f0c5000000000000000001",
+      "author": { "userId": "2", "displayName": "Ivan" },
+      "text": "Agreed, a really good oolong.",
+      "createdAt": "2026-10-06T09:00:00Z" }
+  ],
+  "version": 0,
+  "createdAt": "2026-10-05T10:30:00Z"
+}
+```
+Колекція має гнучку схему: у частини відгуків є додаткові поля (`teaware`, `pros`, `cons`, `discussionId`). Сервіс їх не втрачає при оновленні, бо змінює лише потрібні поля документа.
+
+| Індекс | Навіщо |
+|---|---|
+| `{ productId: 1, createdAt: -1 }` | «останні відгуки про товар» і сортування в списку |
+| text-індекс по `text` | повнотекстовий пошук по тексту відгуків |
+| `{ productId: 1, "author.userId": 1 }`, unique | один відгук від автора на товар |
+
+Перевірка в Compass (mongosh): `db.reviews.getIndexes()`. Повторний запуск сервісу індекси не дублює.
+
+
+### 4.5. Що потрібно для запуску
+1. **.NET 8 SDK** або новіший.
+2. **MongoDB**, запущена локально на `localhost:27017` (Compass або mongosh для перегляду даних). Для цього сервісу MongoDB обов'язкова.
+3. **Ліцензійний ключ MediatR та AutoMapper** (Community-ліцензія безкоштовна, один ключ на обидва пакети). У репозиторій ключ **не комітиться**, його задають у User Secrets:
+```bash
+dotnet user-secrets set "LuckyPenny:LicenseKey" "<ваш-ключ>" --project Services/Reviews/Reviews.WebApi
+```
+4. **Конфігурація MongoDB** у `Services/Reviews/Reviews.WebApi/appsettings.json`:
+```json
+{
+  "MongoDb": {
+    "ConnectionString": "mongodb://localhost:27017/?maxPoolSize=50&serverSelectionTimeoutMS=5000",
+    "DatabaseName": "EastLeaf_ReviewsDB"
+  }
+}
+```
+Для інших середовищ значення перевизначаються у `appsettings.Staging.json` і `appsettings.Production.json`, а також змінною середовища `MongoDb__ConnectionString`.
+
+Початкові дані сервіс додає сам при першому запуску. Скрипти `db/p3/collections.js` і `db/p3/seed.js` з Лаб. 01 теж можна виконати (див. розділ 1.4): вони створюють ті самі дані й безпечні для повторного запуску.
+
+
+### 4.6. Запуск і перевірка
+**Варіант 1: лише Reviews.WebApi.** Встановіть `Reviews.WebApi` стартовим проєктом і запустіть (профіль `https`). Відкриється Swagger UI за адресою `/swagger`. Стан сервісу й підключення до MongoDB показує `/health`.
+
+**Варіант 2: через Aspire.** Встановіть `Platform.AppHost` стартовим проєктом. У ньому зареєстровано `reviews-api` поруч з `orders-api` і `catalog-api`; Swagger відкривається за посиланням у колонці **Endpoints** в Aspire Dashboard.
+
+При старті сервіс спочатку створює індекси, потім виконує сидінг. Якщо MongoDB недоступна, сервіс запускається й пише помилку в лог, а запити повертають 503.
+
+**Тести.** Запустіть **Test → Run All Tests** у Visual Studio. Unit-тести (Domain, Application) працюють без бази. Інтеграційні тести (Infrastructure, позначені `Category=Integration`) потребують запущеної MongoDB; кожен тест використовує власну тимчасову базу й видаляє її після себе.
+
+
+### 4.7. Ендпоінти й статуси відповідей
+| Метод і шлях | Успіх | Помилки |
+|---|---|---|
+| `GET /api/reviews` (`productId`, `page`, `pageSize`) | 200 | 400 (невалідні параметри) |
+| `GET /api/reviews/{id}` | 200 + `ETag` | 400 (невалідний Id), 404 |
+| `POST /api/reviews` | 201 + Location | 400 (валідація, повторний відгук), 409 (дубль за унікальним індексом) |
+| `PUT /api/reviews/{id}` (заголовок `If-Match`) | 204 | 400, 404, 409 (конфлікт версій) |
+| `DELETE /api/reviews/{id}` | 204 | 400, 404 |
+| `POST /api/reviews/{id}/comments` | 201 | 400, 404 |
+| `DELETE /api/reviews/{id}/comments/{commentId}` | 204 | 400, 404 |
+| `GET /health` | 200 | 503 |
+
+**Відповідність винятків і HTTP-статусів** (централізований `GlobalExceptionHandler`):
+
+| Виняток | Статус |
+|---|---|
+| `NotFoundException` | 404 |
+| `ValidationException` (FluentValidation) | 400 |
+| `DomainException` | 400 |
+| `ConflictException` (у т. ч. конфлікт версій) | 409 |
+| `MongoWriteException` (DuplicateKey) | 409 (інші помилки запису: 400) |
+| `MongoConnectionException`, `TimeoutException` | 503 |
+| будь-який інший | 500 (клієнту лише загальне повідомлення, деталі в лозі) |
+
+Усі помилки повертаються у форматі **ProblemDetails**. Помилки валідації збираються разом і повертаються списком по полях.
+
+
+### 4.8. Приклади запитів
+**Створити відгук**
+
+`POST /api/reviews`
+```bash
+curl -X 'POST' \
+  'https://localhost:7000/api/reviews' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "productId": 2,
+    "productName": "Darjeeling First Flush",
+    "authorId": "10",
+    "authorName": "Taras",
+    "rating": 5,
+    "text": "Light and floral."
+  }'
+```
+Відповідь **201 Created**: заголовок `Location: /api/reviews/{id}` з рядковим `ObjectId`, а в тілі той самий `id`.
+
+**Прочитати відгук і оновити його (оптимістична конкурентність)**
+
+1. `GET /api/reviews/{id}` повертає відгук і заголовок `ETag: "0"` (це `version` документа).
+2. `PUT /api/reviews/{id}` із заголовком `If-Match: "0"` і тілом `{ "rating": 4, "text": "Changed my mind" }` повертає **204**, версія стає 1.
+3. Другий `PUT` з тим самим `If-Match: "0"` повертає **409 Conflict**, бо документ уже змінений іншим запитом:
+```json
+{
+  "title": "Conflict",
+  "status": 409,
+  "detail": "Review 66f0... was modified (expected version 0, current 1)",
+  "traceId": "..."
+}
+```
+
+**Помилка валідації (400):** `rating` = 10 і порожній текст
+```json
+{
+  "title": "Validation failed",
+  "status": 400,
+  "detail": "One or more validation errors occurred.",
+  "errors": {
+    "Rating": [ "'Rating' must be between 1 and 5. You entered 10." ],
+    "Text": [ "'Text' must not be empty." ]
+  }
+}
+```
+Обробник у цьому випадку не викликається, у логах немає запису `Handled CreateReviewCommand`.
+
+**Повторний відгук того самого автора на той самий товар (400):**
+```json
+{
+  "title": "Validation failed",
+  "status": 400,
+  "errors": { "AuthorId": [ "You have already reviewed this product" ] }
+}
+```
+
+**Відгук не знайдено (404):** `GET /api/reviews/66f0c9000000000000000009`
+```json
+{
+  "title": "Not Found",
+  "status": 404,
+  "detail": "Review 66f0c9000000000000000009 was not found",
+  "traceId": "..."
+}
+```
