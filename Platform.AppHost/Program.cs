@@ -7,4 +7,6 @@ builder.AddProject<Projects.Orders_Api>("orders-api")
 
 builder.AddProject<Projects.Catalog_Api>("catalog-api");
 
+builder.AddProject<Projects.Reviews_WebApi>("reviews-api");
+
 builder.Build().Run();

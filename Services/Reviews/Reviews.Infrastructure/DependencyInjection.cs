@@ -23,7 +23,11 @@ public static class DependencyInjection
         services.AddSingleton<MongoDbContext>();
         services.AddScoped<IReviewRepository, ReviewRepository>();
         services.AddScoped<IReviewQueries, ReviewQueries>();
+
+        services.AddScoped<IDataSeeder, ReviewSeeder>();
+        
         services.AddHostedService<IndexCreationService>();
+        services.AddHostedService<DataSeedingService>();
 
         return services;
     }
