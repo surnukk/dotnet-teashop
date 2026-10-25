@@ -33,17 +33,17 @@
 ## 1.4. Розгортання з нуля
 Порядок виконання в SSMS: відкрити файл, обрати з'єднання із сервером, натиснути Execute. Усі файли виконуються цілком, без змін.
 
-4.1. Проєкт №1: EastLeaf_OrderDB (SQL Server)
+1. Проєкт №1: EastLeaf_OrderDB (SQL Server)
 1. Виконати db/p1/schema.sql. Скрипт сам видаляє стару версію бази (якщо вона є) і створює її наново, тому його можна запускати повторно. Він створює таблиці, зв'язки, обмеження, індекси, представлення vw_OrderSummary, службові колонки й rowversion. Увага: скрипт призначений для розробки, бо знищує дані бази.
 2. Виконати db/p1/procedures.sql: створює 6 збережуваних процедур.
 3. Виконати db/p1/seed.sql: наповнює базу тестовими даними. Кожна вставка перевіряє наявність запису, тому повторний запуск не створює дублікатів.
 
-4.2. Проєкт №2: EastLeaf_CatalogDB (SQL Server)
+2. Проєкт №2: EastLeaf_CatalogDB (SQL Server)
 1. Виконати db/p2/schema.sql: так само перестворює базу; таблиці, зв'язки, обмеження, індекси, представлення vw_ProductCatalog, службові колонки й rowversion.
 2. Виконати db/p2/seed.sql: довідникові дані (категорії, товари, характеристики, зображення, гіди заварювання, теги). Повторний запуск безпечний.
 Міграції EF Core з'являться в Лаб. 03; поки що ревізії схеми зберігаються як скрипти, історія версій у `docs/migrations.md`.
 
-4.3. Проєкт №3: EastLeaf_ReviewsDB (MongoDB)
+3. Проєкт №3: EastLeaf_ReviewsDB (MongoDB)
 Через Compass: відкрити панель >_MONGOSH, вставити вміст файлу, натиснути Enter (за потреби Enter ще раз на порожньому рядку).
 1. Виконати db/p3/collections.js: створює колекції reviews, tea_discussions, tea_clubs (якщо їх ще немає).
 2. Виконати db/p3/seed.js: наповнює колекції документами. Документ із тим самим _id замінюється, а не додається, тому повторний запуск не створює дублікатів. Після виконання має вивестися reviews: 3, tea_discussions: 1, tea_clubs: 2.
@@ -520,7 +520,7 @@ dotnet user-secrets set "LuckyPenny:LicenseKey" "<ваш-ключ>" --project Se
 `POST /api/reviews`
 ```bash
 curl -X 'POST' \
-  'https://localhost:7000/api/reviews' \
+  'https://localhost:7131/api/reviews' \
   -H 'Content-Type: application/json' \
   -d '{
     "productId": 2,
@@ -579,3 +579,8 @@ curl -X 'POST' \
   "traceId": "..."
 }
 ```
+
+Знімки екрана до здачі трьох баз даних лежать у `docs/`:
+- `docs/lab02_swagger.png`;
+- `docs/lab03_swagger.png`;
+- `docs/lab04_swagger.png`;
