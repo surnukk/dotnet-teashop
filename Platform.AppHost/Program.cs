@@ -1,16 +1,62 @@
+using Aspire.Hosting.ApplicationModel;
+
 var builder = DistributedApplication.CreateBuilder(args);
 
-var ordersDb = builder.AddConnectionString("OrdersDb");
+// true  -> SQL Server і MongoDB піднімаються як Docker-контейнери
+// false -> підключення до локальних баз (запуск без Docker)
+var useContainers = string.Equals(
+    builder.Configuration["UseContainers"], "true", StringComparison.OrdinalIgnoreCase);
 
-builder.AddProject<Projects.Orders_Api>("orders-api")
-       .WithReference(ordersDb);
+// ---------- 2.1 Бази даних ----------
+IResourceBuilder<IResourceWithConnectionString> ordersDb;
+IResourceBuilder<IResourceWithConnectionString> catalogDb;
+IResourceBuilder<IResourceWithConnectionString> reviewsDb;
 
-builder.AddProject<Projects.Catalog_Api>("catalog-api");
+if (useContainers)
+{
+    // пароль SQL Server лежить у секретах AppHost, а не у відкритому коді
+    var sqlPassword = builder.AddParameter("sql-password", secret: true);
 
-builder.AddProject<Projects.Reviews_WebApi>("reviews-api");
+    var sql = builder.AddSqlServer("sql", sqlPassword)
+                     .WithDataVolume();      
+    ordersDb = sql.AddDatabase("OrdersDb");    
+    catalogDb = sql.AddDatabase("CatalogDb"); 
 
-builder.AddProject<Projects.Platform_ApiGateway>("platform-apigateway");
+    var mongo = builder.AddMongoDB("mongo")
+                       .WithDataVolume(); 
+    reviewsDb = mongo.AddDatabase("ReviewsDb");
+}
+else
+{
+    // локальні бази: рядки беруться з ConnectionStrings:* в конфігурації AppHost
+    ordersDb = builder.AddConnectionString("OrdersDb");
+    catalogDb = builder.AddConnectionString("CatalogDb");
+    reviewsDb = builder.AddConnectionString("ReviewsDb");
+}
 
-builder.AddProject<Projects.Platform_Aggregator>("platform-aggregator");
+IResourceBuilder<ProjectResource> WithDb(
+    IResourceBuilder<ProjectResource> project,
+    IResourceBuilder<IResourceWithConnectionString> db)
+{
+    project.WithReference(db);
+    if (useContainers) project.WaitFor(db);
+    return project;
+}
+
+// ---------- 2.2 Наявні мікросервіси ----------
+var orders = WithDb(builder.AddProject<Projects.Orders_Api>("orders-api"), ordersDb);
+var catalog = WithDb(builder.AddProject<Projects.Catalog_Api>("catalog-api"), catalogDb);
+var reviews = WithDb(builder.AddProject<Projects.Reviews_WebApi>("reviews-api"), reviewsDb);
+
+// ---------- 2.3 Aggregator та Gateway ----------
+var aggregator = builder.AddProject<Projects.Platform_Aggregator>("aggregator")
+    .WithReference(orders).WithReference(catalog).WithReference(reviews)
+    .WaitFor(orders).WaitFor(catalog).WaitFor(reviews);
+
+builder.AddProject<Projects.Platform_ApiGateway>("gateway")
+    .WithHttpEndpoint(port: 5000, name: "public")
+    .WithReference(orders).WithReference(catalog).WithReference(reviews)
+    .WithReference(aggregator)
+    .WaitFor(aggregator);
 
 builder.Build().Run();
