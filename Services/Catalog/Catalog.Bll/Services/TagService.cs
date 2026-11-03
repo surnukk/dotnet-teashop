@@ -1,16 +1,18 @@
-﻿using System;
+﻿using AutoMapper;
+using Catalog.Bll.DTO;
+using Catalog.Dal;
+using Catalog.Domain;
+using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using AutoMapper;
-using Catalog.Bll.DTO;
-using Catalog.Dal;
-using Catalog.Domain;
+using Microsoft.Extensions.Logging;
 
 namespace Catalog.Bll.Services;
 
-public class TagService(IUnitOfWork uow, IMapper mapper) : ITagService
+public class TagService(IUnitOfWork uow, IMapper mapper, ILogger<TagService> logger) : ITagService
 {
     public async Task<IReadOnlyList<TagDto>> GetAllAsync(CancellationToken ct)
     {
@@ -37,6 +39,9 @@ public class TagService(IUnitOfWork uow, IMapper mapper) : ITagService
         var tag = new Tag { TagName = name };
         await uow.Tags.AddAsync(tag, ct);
         await uow.SaveChangesAsync(ct);
+
+        logger.LogInformation("Tag {TagId} created", tag.TagId);
+
         return mapper.Map<TagDto>(tag);
     }
 

@@ -6,18 +6,24 @@ using Orders.Dal.Interfaces;
 using Orders.Domain.Exceptions;
 using Orders.Domain.Models;
 using System.Data;
+using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 
 namespace Orders.Bll.Services;
 
 public class OrderService : IOrderService
 {
+    private static readonly ActivitySource Source = new("Orders.Api");
+
     private readonly IUnitOfWork _uow;
     private readonly IMapper _mapper;
+    private readonly ILogger<OrderService> _logger;
 
-    public OrderService(IUnitOfWork uow, IMapper mapper)
+    public OrderService(IUnitOfWork uow, IMapper mapper, ILogger<OrderService> logger)
     {
         _uow = uow;
         _mapper = mapper;
+        _logger = logger;
     }
 
     public async Task<OrderDto?> GetByIdAsync(long orderId, CancellationToken ct = default)
@@ -96,6 +102,9 @@ public class OrderService : IOrderService
             }
 
             await _uow.CommitAsync(ct);
+            _logger.LogInformation(
+                    "Order {OrderId} created for customer {CustomerId}: {ItemsCount} items, amount {Amount}, status {Status}",
+                    orderId, request.CustomerId, items.Count, total, "Submitted");
             return orderId;
         }
         catch
@@ -107,6 +116,9 @@ public class OrderService : IOrderService
 
     public async Task ConfirmOrderAsync(long orderId, CancellationToken ct = default)
     {
+        using var activity = Source.StartActivity("ConfirmOrder");
+        activity?.SetTag("order.id", orderId);
+
         await _uow.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
         try
         {
@@ -118,6 +130,9 @@ public class OrderService : IOrderService
 
             await _uow.Orders.ConfirmAsync(orderId, ct);
             await _uow.CommitAsync(ct);
+
+            _logger.LogInformation("Order {OrderId} confirmed, {ItemsCount} items, status {Status}",
+                orderId, order.Items.Count, "StockConfirmed");
         }
         catch
         {
@@ -134,6 +149,7 @@ public class OrderService : IOrderService
             await _uow.Orders.CancelAsync(orderId, ct);
 
             await _uow.CommitAsync(ct);
+            _logger.LogInformation("Order {OrderId} cancelled, status {Status}", orderId, "Cancelled");
         }
         catch
         {
@@ -145,5 +161,6 @@ public class OrderService : IOrderService
     public async Task ShipOrderAsync(long orderId, CancellationToken ct = default)
     {
         await _uow.Orders.ShipAsync(orderId, ct);
+        _logger.LogInformation("Order {OrderId} shipped, status {Status}", orderId, "Shipped");
     }
 }

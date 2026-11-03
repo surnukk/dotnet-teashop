@@ -4,8 +4,9 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 // true  -> SQL Server і MongoDB піднімаються як Docker-контейнери
 // false -> підключення до локальних баз (запуск без Docker)
-var useContainers = string.Equals(
-    builder.Configuration["UseContainers"], "true", StringComparison.OrdinalIgnoreCase);
+// за замовчуванням контейнери; локальні бази лише при UseContainers=false
+var useContainers = !string.Equals(
+    builder.Configuration["UseContainers"], "false", StringComparison.OrdinalIgnoreCase);
 
 // ---------- 2.1 Бази даних ----------
 IResourceBuilder<IResourceWithConnectionString> ordersDb;
@@ -18,13 +19,13 @@ if (useContainers)
     var sqlPassword = builder.AddParameter("sql-password", secret: true);
 
     var sql = builder.AddSqlServer("sql", sqlPassword)
-                     .WithDataVolume();      
-    ordersDb = sql.AddDatabase("OrdersDb");    
+                     .WithDataVolume();
+    ordersDb = sql.AddDatabase("OrdersDb", "EastLeaf_OrderDB");
     catalogDb = sql.AddDatabase("CatalogDb"); 
 
     var mongo = builder.AddMongoDB("mongo")
-                       .WithDataVolume(); 
-    reviewsDb = mongo.AddDatabase("ReviewsDb");
+                       .WithDataVolume();
+    reviewsDb = mongo.AddDatabase("ReviewsDb", "EastLeaf_ReviewsDB");
 }
 else
 {

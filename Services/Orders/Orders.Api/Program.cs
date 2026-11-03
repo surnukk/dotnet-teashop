@@ -8,6 +8,8 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.AddServiceDefaults();
+
 var connectionString = builder.Configuration.GetConnectionString("OrdersDb")
     ?? throw new InvalidOperationException("Connection string 'OrdersDb' is missing");
 
@@ -43,6 +45,8 @@ builder.Services.AddExceptionHandler<Orders.Api.Infrastructure.DomainExceptionHa
 
 
 var app = builder.Build();
+
+app.MapDefaultEndpoints();         // /health і /alive (лише в Development)
 
 if (app.Environment.IsDevelopment())
     app.Services.GetRequiredService<AutoMapper.IConfigurationProvider>().AssertConfigurationIsValid();

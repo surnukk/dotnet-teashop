@@ -9,6 +9,12 @@ using Reviews.WebApi.ExceptionHandling;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.AddServiceDefaults();
+
+var aspireMongo = builder.Configuration.GetConnectionString("ReviewsDb");
+if (!string.IsNullOrWhiteSpace(aspireMongo))
+    builder.Configuration["MongoDb:ConnectionString"] = aspireMongo;
+
 // Structured logging (Serilog)
 builder.Host.UseSerilog((context, configuration) => configuration
     .MinimumLevel.Information()
@@ -38,6 +44,7 @@ builder.Services.AddHealthChecks().AddCheck<MongoHealthCheck>("mongodb");
 var app = builder.Build();
 
 app.UseExceptionHandler();
+app.MapDefaultEndpoints();
 
 if (app.Environment.IsDevelopment())
 {
@@ -46,6 +53,5 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapControllers();
-app.MapHealthChecks("/health");
 
 app.Run();

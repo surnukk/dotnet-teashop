@@ -1,17 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using MediatR;
+﻿using MediatR;
+using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using Reviews.Domain.Exceptions;
 using Reviews.Domain.Interfaces;
 using Reviews.Domain.ValueObjects;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace Reviews.Application.Commands.UpdateReview;
 
-public class UpdateReviewCommandHandler(IReviewRepository reviews)
+public class UpdateReviewCommandHandler(IReviewRepository reviews, ILogger<UpdateReviewCommandHandler> logger)
     : IRequestHandler<UpdateReviewCommand>
 {
     public async Task Handle(UpdateReviewCommand cmd, CancellationToken ct)
@@ -25,5 +27,7 @@ public class UpdateReviewCommandHandler(IReviewRepository reviews)
 
         review.Update(new Rating(cmd.Rating), cmd.Text);
         await reviews.UpdateAsync(review, ct);
+
+        logger.LogInformation("Review {ReviewId} updated, rating {Rating}", cmd.Id, cmd.Rating);
     }
 }

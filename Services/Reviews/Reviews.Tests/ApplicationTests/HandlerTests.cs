@@ -21,6 +21,7 @@ using Reviews.Domain.Entities;
 using Reviews.Domain.Exceptions;
 using Reviews.Domain.Interfaces;
 using Reviews.Domain.ValueObjects;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Reviews.Domain.Tests;
 
@@ -41,7 +42,7 @@ public class HandlerTests
     public async Task Create_returns_object_id_and_saves_review()
     {
         var repo = Substitute.For<IReviewRepository>();
-        var handler = new CreateReviewCommandHandler(repo);
+        var handler = new CreateReviewCommandHandler(repo, NullLogger<CreateReviewCommandHandler>.Instance);
 
         var id = await handler.Handle(
             new CreateReviewCommand(4, "Da Hong Pao Oolong", "1", "Olena", 5, "Great tea"), default);
@@ -53,7 +54,7 @@ public class HandlerTests
     [Fact]
     public async Task Update_unknown_review_throws_not_found()
     {
-        var handler = new UpdateReviewCommandHandler(RepoReturning(null));
+        var handler = new UpdateReviewCommandHandler(RepoReturning(null), NullLogger<UpdateReviewCommandHandler>.Instance);
 
         await Assert.ThrowsAsync<NotFoundException>(() => handler.Handle(
             new UpdateReviewCommand(ObjectId.GenerateNewId().ToString(), 4, "New text", 0), default));
@@ -63,7 +64,7 @@ public class HandlerTests
     public async Task Update_with_wrong_version_throws_conflict_and_does_not_save()
     {
         var repo = RepoReturning(NewReview());
-        var handler = new UpdateReviewCommandHandler(repo);
+        var handler = new UpdateReviewCommandHandler(repo, NullLogger<UpdateReviewCommandHandler>.Instance);
 
         await Assert.ThrowsAsync<ConflictException>(() => handler.Handle(
             new UpdateReviewCommand(ObjectId.GenerateNewId().ToString(), 4, "New text", 5), default));
@@ -76,7 +77,7 @@ public class HandlerTests
     {
         var review = NewReview();
         var repo = RepoReturning(review);
-        var handler = new UpdateReviewCommandHandler(repo);
+        var handler = new UpdateReviewCommandHandler(repo, NullLogger<UpdateReviewCommandHandler>.Instance);
 
         await handler.Handle(
             new UpdateReviewCommand(review.Id.ToString(), 3, "Changed my mind", review.Version), default);
@@ -91,7 +92,7 @@ public class HandlerTests
     {
         var repo = Substitute.For<IReviewRepository>();
         repo.DeleteAsync(Arg.Any<ObjectId>(), Arg.Any<CancellationToken>()).Returns(false);
-        var handler = new DeleteReviewCommandHandler(repo);
+        var handler = new DeleteReviewCommandHandler(repo, NullLogger<DeleteReviewCommandHandler>.Instance);
 
         await Assert.ThrowsAsync<NotFoundException>(() =>
             handler.Handle(new DeleteReviewCommand(ObjectId.GenerateNewId().ToString()), default));
@@ -102,8 +103,7 @@ public class HandlerTests
     {
         var review = NewReview();
         var repo = RepoReturning(review);
-        var handler = new AddCommentCommandHandler(repo);
-
+        var handler = new AddCommentCommandHandler(repo, NullLogger<AddCommentCommandHandler>.Instance);
         var commentId = await handler.Handle(
             new AddCommentCommand(review.Id.ToString(), "2", "Ivan", "Agreed"), default);
 

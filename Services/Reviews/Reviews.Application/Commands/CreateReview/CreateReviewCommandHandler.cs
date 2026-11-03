@@ -7,10 +7,13 @@ using MediatR;
 using Reviews.Domain.Entities;
 using Reviews.Domain.Interfaces;
 using Reviews.Domain.ValueObjects;
+using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Reviews.Application.Common;
 
 namespace Reviews.Application.Commands.CreateReview;
 
-public class CreateReviewCommandHandler(IReviewRepository reviews)
+public class CreateReviewCommandHandler(IReviewRepository reviews, ILogger<CreateReviewCommandHandler> logger)
     : IRequestHandler<CreateReviewCommand, string>
 {
     public async Task<string> Handle(CreateReviewCommand cmd, CancellationToken ct)
@@ -23,6 +26,10 @@ public class CreateReviewCommandHandler(IReviewRepository reviews)
             cmd.Text);
 
         await reviews.AddAsync(review, ct);
+
+        logger.LogInformation("Review {ReviewId} created for product {ProductId}, rating {Rating}",
+            review.Id, cmd.ProductId, cmd.Rating);
+
         return review.Id.ToString();
     }
 }

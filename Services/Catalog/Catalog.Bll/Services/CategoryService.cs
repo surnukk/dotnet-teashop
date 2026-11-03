@@ -7,10 +7,12 @@ using AutoMapper;
 using Catalog.Bll.DTO;
 using Catalog.Dal;
 using Catalog.Domain;
+using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 
 namespace Catalog.Bll.Services;
 
-public class CategoryService(IUnitOfWork uow, IMapper mapper) : ICategoryService
+public class CategoryService(IUnitOfWork uow, IMapper mapper, ILogger<CategoryService> logger) : ICategoryService
 {
     public async Task<IReadOnlyList<CategoryDto>> GetAllAsync(CancellationToken ct)
     {
@@ -35,6 +37,9 @@ public class CategoryService(IUnitOfWork uow, IMapper mapper) : ICategoryService
         var category = new Category(name, input.Descrip);   // порожню назву відхилить сутність
         await uow.Categories.AddAsync(category, ct);
         await uow.SaveChangesAsync(ct);
+
+        logger.LogInformation("Category {CategoryId} created", category.CategoryId);
+
         return mapper.Map<CategoryDto>(category);
     }
 
@@ -49,6 +54,9 @@ public class CategoryService(IUnitOfWork uow, IMapper mapper) : ICategoryService
 
         category.Update(name, input.Descrip);
         await uow.SaveChangesAsync(ct);
+
+        logger.LogInformation("Category {CategoryId} updated", id);
+
         return mapper.Map<CategoryDto>(category);
     }
 }

@@ -5,7 +5,7 @@ using Orders.Bll.Services;
 namespace Orders.Api.Controllers;
 
 [ApiController]
-[Route("api/products")]
+[Route("api/orders/products")]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
 public class ProductsController(IProductService productService) : ControllerBase

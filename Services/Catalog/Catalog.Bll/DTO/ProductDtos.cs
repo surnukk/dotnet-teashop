@@ -25,7 +25,9 @@ public record ProductDetailsDto(int ProductId, string ProductName, string Catego
 public record CreateProductDto(int CategoryId, string ProductName, decimal Price);
 
 public record ChangePriceDto(
-    [Range(typeof(decimal), "0.01", "1000000")] decimal Price);
+    [Range(typeof(decimal), "0.01", "1000000",
+           ParseLimitsInInvariantCulture = true,
+           ConvertValueInInvariantCulture = true)] decimal Price);
 
 public record StockChangeDto(
     [Range(1, 100000)] int Quantity);

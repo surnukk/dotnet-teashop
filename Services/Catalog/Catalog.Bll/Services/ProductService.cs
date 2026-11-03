@@ -9,11 +9,15 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Catalog.Dal.Specifications;
+using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 
 namespace Catalog.Bll.Services;
 
-public class ProductService(IUnitOfWork uow, IMapper mapper) : IProductService
+public class ProductService(IUnitOfWork uow, IMapper mapper, ILogger<ProductService> logger) : IProductService
 {
+    private static readonly ActivitySource Source = new("Catalog.Api");
+
     public async Task<PagedResult<ProductDto>> GetListAsync(ProductQuery q, CancellationToken ct)
     {
         var page = Math.Max(q.Page, 1);
@@ -58,14 +62,25 @@ public class ProductService(IUnitOfWork uow, IMapper mapper) : IProductService
         await uow.Products.AddAsync(product, ct);
         await uow.SaveChangesAsync(ct);
 
+        logger.LogInformation("Product {ProductId} created in category {CategoryId}, price {Price}",
+            product.ProductId, product.CategoryId, product.Price);
+
         return mapper.Map<ProductDto>(product);
     }
 
     public async Task<ProductDto> ChangePriceAsync(int id, ChangePriceDto input, CancellationToken ct)
     {
+        using var activity = Source.StartActivity("ChangeProductPrice");
+        activity?.SetTag("product.id", id);
+
         var product = await GetOrThrowAsync(id, ct);
-        product.ChangePrice(input.Price);              // ціна > 0: перевіряє сутність
+        var oldPrice = product.Price;
+        product.ChangePrice(input.Price);
         await uow.SaveChangesAsync(ct);
+
+        logger.LogInformation("Product {ProductId} price changed from {OldPrice} to {NewPrice}",
+            id, oldPrice, product.Price);
+
         return mapper.Map<ProductDto>(product);
     }
 
@@ -74,6 +89,10 @@ public class ProductService(IUnitOfWork uow, IMapper mapper) : IProductService
         var product = await GetOrThrowAsync(id, ct);
         product.AddStock(input.Quantity);              // кількість > 0: перевіряє сутність
         await uow.SaveChangesAsync(ct);
+
+        logger.LogInformation("Product {ProductId} stock increased by {Quantity}, now {Stock}",
+            id, input.Quantity, product.StockQuantity);
+
         return mapper.Map<ProductDto>(product);
     }
 
@@ -82,6 +101,10 @@ public class ProductService(IUnitOfWork uow, IMapper mapper) : IProductService
         var product = await GetOrThrowAsync(id, ct);
         product.RemoveStock(input.Quantity);           // достатній залишок: перевіряє сутність
         await uow.SaveChangesAsync(ct);
+
+        logger.LogInformation("Product {ProductId} stock decreased by {Quantity}, now {Stock}",
+            id, input.Quantity, product.StockQuantity);
+
         return mapper.Map<ProductDto>(product);
     }
 
@@ -90,6 +113,7 @@ public class ProductService(IUnitOfWork uow, IMapper mapper) : IProductService
         var product = await GetOrThrowAsync(id, ct);
         uow.Products.Delete(product);
         await uow.SaveChangesAsync(ct);
+        logger.LogInformation("Product {ProductId} deleted", id);
     }
 
     // GetByIdAsync повертає відстежувану сутність, тому Update перед збереженням не потрібен
@@ -109,6 +133,7 @@ public class ProductService(IUnitOfWork uow, IMapper mapper) : IProductService
 
         await uow.ProductTags.AddAsync(new ProductTag { ProductId = productId, TagId = tagId }, ct);
         await uow.SaveChangesAsync(ct);
+        logger.LogInformation("Tag {TagId} added to product {ProductId}", tagId, productId);
     }
 
     public async Task RemoveTagAsync(int productId, int tagId, CancellationToken ct)
@@ -118,5 +143,6 @@ public class ProductService(IUnitOfWork uow, IMapper mapper) : IProductService
 
         uow.ProductTags.Delete(link);
         await uow.SaveChangesAsync(ct);
+        logger.LogInformation("Tag {TagId} removed from product {ProductId}", tagId, productId);
     }
 }

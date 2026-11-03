@@ -10,6 +10,8 @@ using Serilog.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.AddServiceDefaults();      // логування, трасування, health checks, service discovery
+
 builder.Host.UseSerilog((ctx, cfg) => cfg
     .ReadFrom.Configuration(ctx.Configuration)
     .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", 
@@ -49,6 +51,8 @@ builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 var app = builder.Build();
+
+app.MapDefaultEndpoints();         // /health і /alive (лише в Development)
 
 app.UseSerilogRequestLogging(o => o.EnrichDiagnosticContext = (diag, http) =>
 {
