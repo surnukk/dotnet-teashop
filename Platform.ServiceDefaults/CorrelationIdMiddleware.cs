@@ -20,7 +20,12 @@ public class CorrelationIdMiddleware(RequestDelegate next, ILogger<CorrelationId
         if (string.IsNullOrWhiteSpace(correlationId))
         {
             correlationId = Guid.NewGuid().ToString();
-            context.Request.Headers[HeaderName] = correlationId;   // далі його побачать YARP і HttpClient
+            context.Response.OnStarting(() =>
+            {
+                context.Response.Headers[HeaderName] = correlationId;
+                return Task.CompletedTask;
+            });
+            logger.LogInformation("Generated new CorrelationId {CorrelationId}", correlationId);
         }
 
         context.Response.Headers[HeaderName] = correlationId;      // повертаємо клієнту

@@ -76,7 +76,8 @@ namespace Microsoft.Extensions.Hosting
             {
                 metrics.AddAspNetCoreInstrumentation()
                        .AddHttpClientInstrumentation()
-                       .AddRuntimeInstrumentation();
+                       .AddRuntimeInstrumentation()
+                       .AddMeter("Yarp.ReverseProxy");
             })
             .WithTracing(tracing =>
             {
