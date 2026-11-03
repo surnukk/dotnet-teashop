@@ -1,12 +1,18 @@
-using Microsoft.AspNetCore.Builder;
+﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.ServiceDiscovery;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Serilog;
+using Serilog.Events;
+using Serilog.Formatting.Compact;
 
 namespace Microsoft.Extensions.Hosting
 {
@@ -18,28 +24,37 @@ namespace Microsoft.Extensions.Hosting
         private const string HealthEndpointPath = "/health";
         private const string AlivenessEndpointPath = "/alive";
 
-        public static TBuilder AddServiceDefaults<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder
+        public static TBuilder AddServiceDefaults<TBuilder>(this TBuilder builder)
+    where TBuilder : IHostApplicationBuilder
         {
-            builder.ConfigureOpenTelemetry();
+            builder.Services.AddSerilog((services, cfg) => cfg
+                .MinimumLevel.Is(builder.Environment.IsDevelopment() ? LogEventLevel.Debug : LogEventLevel.Information)
+                .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
+                .MinimumLevel.Override("System.Net.Http.HttpClient", LogEventLevel.Warning)
+                .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+                .Enrich.FromLogContext()
+                .Enrich.WithProperty("ServiceName", builder.Environment.ApplicationName)
+                .Enrich.WithEnvironmentName()
+                .Enrich.WithMachineName()
+                .Enrich.WithThreadId()
+                .WriteTo.Console(new CompactJsonFormatter()),
+                writeToProviders: true);          // передає записи в OpenTelemetry → вкладка Structured
 
+            builder.ConfigureOpenTelemetry();  
             builder.AddDefaultHealthChecks();
 
             builder.Services.AddServiceDiscovery();
+            builder.Services.AddHttpContextAccessor();
+
+            // 4.2 передавання CorrelationId у вихідні HTTP-запити
+            builder.Services.AddTransient<CorrelationIdHandler>();
 
             builder.Services.ConfigureHttpClientDefaults(http =>
             {
-                // Turn on resilience by default
                 http.AddStandardResilienceHandler();
-
-                // Turn on service discovery by default
                 http.AddServiceDiscovery();
+                http.AddHttpMessageHandler<CorrelationIdHandler>();
             });
-
-            // Uncomment the following to restrict the allowed schemes for service discovery.
-            // builder.Services.Configure<ServiceDiscoveryOptions>(options =>
-            // {
-            //     options.AllowedSchemes = ["https"];
-            // });
 
             return builder;
         }
@@ -53,25 +68,28 @@ namespace Microsoft.Extensions.Hosting
             });
 
             builder.Services.AddOpenTelemetry()
-                .WithMetrics(metrics =>
-                {
-                    metrics.AddAspNetCoreInstrumentation()
-                        .AddHttpClientInstrumentation()
-                        .AddRuntimeInstrumentation();
-                })
-                .WithTracing(tracing =>
-                {
-                    tracing.AddSource(builder.Environment.ApplicationName)
-                        .AddAspNetCoreInstrumentation(tracing =>
-                            // Exclude health check requests from tracing
-                            tracing.Filter = context =>
-                                !context.Request.Path.StartsWithSegments(HealthEndpointPath)
-                                && !context.Request.Path.StartsWithSegments(AlivenessEndpointPath)
-                        )
-                        // Uncomment the following line to enable gRPC instrumentation (requires the OpenTelemetry.Instrumentation.GrpcNetClient package)
-                        //.AddGrpcClientInstrumentation()
-                        .AddHttpClientInstrumentation();
-                });
+            .ConfigureResource(r => r.AddAttributes(new KeyValuePair<string, object>[]
+            {
+                new("deployment.environment", builder.Environment.EnvironmentName)
+            }))
+            .WithMetrics(metrics =>
+            {
+                metrics.AddAspNetCoreInstrumentation()
+                       .AddHttpClientInstrumentation()
+                       .AddRuntimeInstrumentation();
+            })
+            .WithTracing(tracing =>
+            {
+                tracing
+                      .SetSampler(builder.Environment.IsDevelopment()
+                            ? new AlwaysOnSampler()
+                            : new TraceIdRatioBasedSampler(builder.Configuration.GetValue("Telemetry:SamplingRatio", 0.1)))
+                      .AddSource(builder.Environment.ApplicationName)             
+                      .AddSource("MongoDB.Driver.Core.Extensions.DiagnosticSources")      // MongoDB
+                      .AddAspNetCoreInstrumentation()                                 
+                      .AddHttpClientInstrumentation()
+                      .AddSqlClientInstrumentation();                                     // Dapper і EF Core
+            });
 
             builder.AddOpenTelemetryExporters();
 

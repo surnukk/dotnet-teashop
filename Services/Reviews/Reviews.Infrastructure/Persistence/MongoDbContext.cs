@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using Reviews.Domain.Entities;
+using MongoDB.Driver.Core.Extensions.DiagnosticSources;
 
 namespace Reviews.Infrastructure.Persistence;
 
@@ -20,7 +21,9 @@ public class MongoDbContext
         if (string.IsNullOrWhiteSpace(settings.DatabaseName))
             throw new InvalidOperationException("MongoDb:DatabaseName is not configured");
 
-        Client = new MongoClient(settings.ConnectionString);
+        var mongoSettings = MongoClientSettings.FromConnectionString(settings.ConnectionString);
+        mongoSettings.ClusterConfigurator = cb => cb.Subscribe(new DiagnosticsActivityEventSubscriber());
+        Client = new MongoClient(mongoSettings);
         Database = Client.GetDatabase(settings.DatabaseName);
     }
 

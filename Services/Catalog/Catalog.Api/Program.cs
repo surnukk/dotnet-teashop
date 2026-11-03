@@ -5,20 +5,10 @@ using Catalog.Bll.Validators;
 using Catalog.Dal;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
-using Serilog;
-using Serilog.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();      // логування, трасування, health checks, service discovery
-
-builder.Host.UseSerilog((ctx, cfg) => cfg
-    .ReadFrom.Configuration(ctx.Configuration)
-    .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", 
-                                                            LogEventLevel.Information) 
-    .Enrich.FromLogContext()
-    .WriteTo.Console(outputTemplate:
-        "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}"));
 
 builder.Services.AddDbContext<AppDbContext>(o =>
     o.UseSqlServer(builder.Configuration.GetConnectionString("CatalogDb")));
@@ -54,11 +44,7 @@ var app = builder.Build();
 
 app.MapDefaultEndpoints();         // /health і /alive (лише в Development)
 
-app.UseSerilogRequestLogging(o => o.EnrichDiagnosticContext = (diag, http) =>
-{
-    diag.Set("CorrelationId", http.TraceIdentifier);
-    diag.Set("UserId", http.User.Identity?.Name ?? "anonymous");
-});
+app.UseMiddleware<CorrelationIdMiddleware>();
 
 app.UseExceptionHandler();
 

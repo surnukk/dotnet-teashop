@@ -3,8 +3,6 @@ using Reviews.Application.Common.Mappings;
 using Reviews.Infrastructure;
 using Reviews.WebApi.HealthChecks;
 using Reviews.WebApi.Mapping;
-using Serilog;
-using Serilog.Events;
 using Reviews.WebApi.ExceptionHandling;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,13 +12,6 @@ builder.AddServiceDefaults();
 var aspireMongo = builder.Configuration.GetConnectionString("ReviewsDb");
 if (!string.IsNullOrWhiteSpace(aspireMongo))
     builder.Configuration["MongoDb:ConnectionString"] = aspireMongo;
-
-// Structured logging (Serilog)
-builder.Host.UseSerilog((context, configuration) => configuration
-    .MinimumLevel.Information()
-    .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
-    .Enrich.FromLogContext()
-    .WriteTo.Console());
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -42,6 +33,8 @@ builder.Services.AddAutoMapper(cfg =>
 builder.Services.AddHealthChecks().AddCheck<MongoHealthCheck>("mongodb");
 
 var app = builder.Build();
+
+app.UseMiddleware<CorrelationIdMiddleware>();
 
 app.UseExceptionHandler();
 app.MapDefaultEndpoints();
