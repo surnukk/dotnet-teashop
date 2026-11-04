@@ -16,6 +16,7 @@ public class ProductWithDetailsSpec : Specification<Product>
              .Include(p => p.Category)
              .Include(p => p.Detail)
              .Include(p => p.Images)
-             .Include(p => p.ProductTags).ThenInclude(pt => pt.Tag);
+             .Include(p => p.ProductTags).ThenInclude(pt => pt.Tag)
+             .AsSplitQuery();
     }
 }

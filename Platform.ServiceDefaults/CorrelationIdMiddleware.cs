@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Serilog.Context;
@@ -20,16 +15,17 @@ public class CorrelationIdMiddleware(RequestDelegate next, ILogger<CorrelationId
         if (string.IsNullOrWhiteSpace(correlationId))
         {
             correlationId = Guid.NewGuid().ToString();
-            context.Response.OnStarting(() =>
-            {
-                context.Response.Headers[HeaderName] = correlationId;
-                return Task.CompletedTask;
-            });
+            context.Request.Headers[HeaderName] = correlationId;   // його побачать YARP і HttpClient
             logger.LogInformation("Generated new CorrelationId {CorrelationId}", correlationId);
         }
 
-        context.Response.Headers[HeaderName] = correlationId;      // повертаємо клієнту
-        Activity.Current?.SetTag("correlation.id", correlationId); // видно і в Traces
+        context.Response.OnStarting(() =>
+        {
+            context.Response.Headers[HeaderName] = correlationId;
+            return Task.CompletedTask;
+        });
+
+        Activity.Current?.SetTag("correlation.id", correlationId);
 
         using (LogContext.PushProperty("CorrelationId", correlationId))
         {

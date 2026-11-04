@@ -584,3 +584,142 @@ curl -X 'POST' \
 - `docs/lab02_swagger.png`;
 - `docs/lab03_swagger.png`;
 - `docs/lab04_swagger.png`;
+
+## 5. Лаб. 05: платформа на .NET Aspire (AppHost, ServiceDefaults, API Gateway, Aggregator)
+
+Три сервіси з Лаб. 02-04 (Orders, Catalog, Reviews) об'єднані в одну розподілену платформу. Запуском, базами даних і зв'язками між сервісами керує **.NET Aspire**; спільні налаштування логування, трасування й перевірки стану винесені в **ServiceDefaults**; єдина точка входу для клієнтів це **API Gateway на YARP**; картку замовлення з даних трьох сервісів збирає **Aggregator**.
+
+### 5.1. Таблиця проєкт - призначення
+| Проєкт | Призначення |
+|---|---|
+| Platform.AppHost | Описує всі ресурси платформи в коді: SQL Server і MongoDB (контейнери з томами даних), `orders-api`, `catalog-api`, `reviews-api`, `aggregator`, `gateway`; передає сервісам рядки підключення й адреси один одного; задає порядок запуску (`WaitFor`) |
+| Platform.ServiceDefaults | Один метод `AddServiceDefaults()` підключає до кожного сервісу однакове логування, трасування, health checks, service discovery і стійкість HTTP-клієнтів |
+| Platform.ApiGateway | Приймає всі запити клієнтів на порту 5000 і спрямовує їх у потрібний сервіс |
+| Platform.Aggregator | Один запит до нього замінює три запити клієнта до різних сервісів |
+
+Імена ресурсів в AppHost (`orders-api`, `catalog-api`, `reviews-api`, `aggregator`) це **логічні імена сервісів**: сервіси звертаються одне до одного за ними (`http://orders-api`), а реальні адреси підставляє service discovery Aspire.
+
+### 5.2. Розгортання платформи
+1. Відкрийте `Platform.slnx` у Visual Studio. У Solution Explorer клікніть правою на **Platform.AppHost** → **Set as Startup Project**.
+2. Запустіть Docker Desktop і дочекайтеся, поки він повністю стартує.
+3. Запустіть AppHost: **Ctrl+F5** (без налагоджувача, менше навантаження на пам'ять) або **F5**. Aspire сам створює контейнери `sql` і `mongo`, підключає томи даних (дані зберігаються між запусками), створює бази `EastLeaf_OrderDB`, `CatalogDb` та `EastLeaf_ReviewsDB`, запускає сервіси в порядку «бази → orders-api, catalog-api, reviews-api → aggregator → gateway». Автоматично відкривається **Aspire Dashboard**.
+4. **Одноразове наповнення бази Orders.** Сервіс Orders працює через збережувані процедури, тому на порожню базу в контейнері треба один раз виконати скрипти з Лаб. 01 (порядок важливий):
+   1. Дізнайтеся порт контейнера SQL Server: у терміналі `docker ps` (колонка PORTS, наприклад `0.0.0.0:54524->1433`) або колонка URLs у ресурса `sql` в Dashboard.
+   2. У SSMS підключіться: сервер `127.0.0.1,<порт>`, автентифікація SQL Server, користувач `sa`, пароль із `sql-password`, галочка Trust server certificate.
+   3. Виконайте по черзі `db/p1/schema.sql`, `db/p1/procedures.sql`, `db/p1/seed.sql`. Скрипт `schema.sql` видаляє й створює базу заново, тому запускати його треба **лише один раз**; дані збережуться у томі й будуть доступні після перезапусків.
+5. База **Catalog** створюється й наповнюється сама: при старті `catalog-api` застосовує міграції EF Core та `DbInitializer`. База **Reviews** теж наповнюється сама (`ReviewSeeder`) при старті `reviews-api`.
+6. У Dashboard (вкладка **Resources**) переконайтеся, що всі ресурси мають статус **Running**.
+
+**Адреси.** Клієнти користуються лише Gateway. Адреси окремих сервісів потрібні для налагодження, їх показує колонка **Endpoints** у Dashboard.
+
+| Що | Адреса |
+|---|---|
+| Gateway (єдина точка входу) | `http://localhost:5000` |
+| Aspire Dashboard | відкривається автоматично (`http://localhost:17005`) |
+| Swagger сервісів (Development) | `https://localhost:7271/swagger` (orders-api), `https://localhost:7208/swagger` (catalog-api), `https://localhost:7131/swagger` (reviews-api), `https://localhost:7297/swagger` (aggregator) |
+| Health check (лише Development) | `<адреса сервісу>/health` і `<адреса сервісу>/alive` |
+
+
+### 5.3. Що зроблено в лабі
+
+**Частина 1-2. Aspire і оркестрація**
+1. Створено проєкти `Platform.AppHost`, `Platform.ServiceDefaults`, `Platform.ApiGateway`, `Platform.Aggregator`; сервіси з Лаб. 02-04 підключено до рішення.
+2. В AppHost описано SQL Server і MongoDB (контейнери з томами, пароль як секретний параметр `sql-password`), усі сервіси, передачу рядків підключення (`WithReference`) і порядок запуску (`WaitFor`). Gateway працює на порту 5000.
+
+**Частина 3. Інтеграція сервісів**
+3. У кожному сервісі додано `AddServiceDefaults()` і `MapDefaultEndpoints()`; рядки підключення беруться за іменами ресурсів (`OrdersDb`, `CatalogDb`, `ReviewsDb`), резервні лишилися в `appsettings.json`.
+4. Додано логування бізнес-подій (замовлення, оплата, товари, відгуки) без чутливих даних і власні spans `ConfirmOrder`, `ChangeProductPrice`, `CreateReview`.
+5. Товари Orders перенесено на `/api/orders/products`, щоб `/api/products` належав лише каталогу.
+
+**Частина 4. ServiceDefaults**
+6. **Serilog:** структуровані логи в JSON з `ServiceName`, `EnvironmentName`, `MachineName`, `ThreadId`; передача в OpenTelemetry (`writeToProviders`), тому логи видно у вкладці Structured.
+7. **CorrelationId:** `CorrelationIdMiddleware` бере `X-Correlation-Id` із запиту або створює новий, додає його в логи й заголовок відповіді; `CorrelationIdHandler` передає його у вихідні запити до інших сервісів.
+8. **OpenTelemetry:** трасування ASP.NET Core, HttpClient, SQL (Dapper і EF Core) і MongoDB, метрики, експорт в Aspire Dashboard; вибірка 100 % у Development.
+
+**Частина 5. API Gateway (YARP)**
+9. Маршрути й кластери задано в `appsettings.json` Gateway з логічними іменами сервісів (`http://orders-api`):
+
+| Маршрути | Сервіс |
+|---|---|
+| `/api/orders`, `/api/customers`, `/api/payments`, `/api/promotions` | orders-api |
+| `/api/products`, `/api/categories`, `/api/tags` | catalog-api |
+| `/api/reviews` | reviews-api |
+| `/api/aggregator` | aggregator |
+
+10. Gateway створює CorrelationId на вході (до `MapReverseProxy`) і логує кожен запит: маршрут, статус, тривалість, розмір відповіді, IP клієнта, помилки недоступних сервісів. Налаштовано таймаут 30 с, ліміт тіла запиту 1 МБ і метадані маршрутів.
+
+**Частина 6. Aggregator**
+11. Типізовані клієнти `OrdersClient`, `CatalogClient`, `ReviewsClient` (адреси `https+http://<сервіс>`); запити до Catalog і Reviews виконуються паралельно через `Task.WhenAll`.
+12. Часткові відмови: якщо недоступний Catalog чи Reviews, відповідь містить наявні дані й `warnings`; якщо недоступний Orders, повертається 503. `FullOrderDto` об'єднує замовлення, актуальні товари й відгуки, JSON у camelCase без null-значень.
+
+**Правки сервісів під платформу:** у Catalog прибрано `UseHttpsRedirection`, виправлено розбір `Range` для ціни та додано `AsSplitQuery()`; у Reviews Mongo-підключення береться з `ConnectionStrings:ReviewsDb`, а `LoggingBehavior` не пише вміст відгуків.
+
+### 5.6. Ендпоїнти платформи (через Gateway)
+Усі запити надсилаються на `http://localhost:5000`. Ендпоїнти й статуси сервісів описані в розділах 2.4, 3.7 і 4.7; Gateway лише маршрутизує їх. Власний ендпоїнт платформи один:
+
+| Метод і шлях | Успіх | Помилки |
+|---|---|---|
+| `GET /api/aggregator/orders/{id}/full` | 200 (у т. ч. часткова відповідь із `warnings`) | 404 (замовлення не знайдено), 503 (недоступний orders-api) |
+
+У кожній відповіді є один заголовок `X-Correlation-Id`.
+
+
+### 5.4. Приклади запитів
+**Читання через Gateway** (`-i` показує заголовки)
+```bash
+curl -i http://localhost:5000/api/orders/1
+curl -i "http://localhost:5000/api/products?page=1"
+curl -i http://localhost:5000/api/reviews
+```
+Відповідь: `200 OK` і заголовок `X-Correlation-Id`.
+
+**Власний CorrelationId клієнта**
+```bash
+curl -i -H "X-Correlation-Id: my-test-123" http://localhost:5000/api/customers/2
+```
+У відповіді повертається `my-test-123`; за цим значенням у Structured logs знаходяться записи Gateway і Orders.
+
+**Запис через Gateway**
+```bash
+# змінити ціну товару (Catalog) -> 200
+curl -i -X PUT http://localhost:5000/api/products/1/price \
+  -H "Content-Type: application/json" -d '{"price":480}'
+
+# створити відгук (Reviews) -> 201, в тілі id відгуку
+curl -i -X POST http://localhost:5000/api/reviews \
+  -H "Content-Type: application/json" \
+  -d '{"productId":1,"productName":"Sencha Premium","authorId":"u100","authorName":"Tester","rating":5,"text":"Test review"}'
+
+# видалити відгук (Reviews) -> 204
+curl -i -X DELETE http://localhost:5000/api/reviews/<id-відгуку>
+```
+У PowerShell для JSON зручніше використовувати файл: `'{"price":480}' | Out-File body.json -Encoding ascii`, а далі `curl.exe ... --data "@body.json"`.
+
+**Агрегований запит**
+```bash
+curl -i http://localhost:5000/api/aggregator/orders/1/full
+```
+Відповідь 200 (скорочено):
+```json
+{
+  "order": { "orderID": 1, "orderState": "StockConfirmed", "totalAmount": 675.00,
+            "items": [ { "productId": 1, "productName": "Sencha Premium", "unitPrice": 300.00, "units": 1 } ] },
+  "products": [ { "productId": 1, "productName": "Sencha Premium", "price": 480.00, "stockQuantity": 50 } ],
+  "reviews":  [ { "productId": 4, "authorName": "Olena", "rating": 5, "commentsCount": 1 } ],
+  "warnings": []
+}
+```
+У `order.items` ціна на момент оформлення (300), а в `products` актуальна з каталогу (480).
+
+**Часткова відмова** (`reviews-api` зупинено): 200, `reviews` порожній, а `warnings: ["reviews-api is unavailable"]`.
+
+**Замовлення не існує (404):** `GET /api/aggregator/orders/9999/full`
+```json
+{ "title": "Order not found", "status": 404, "detail": "Order 9999 was not found" }
+```
+
+### 5.10. Обмеження
+- Початкове наповнення бази Orders виконується вручну один раз (скрипти `db/p1`), бо сервіс працює зі збереженими процедурами.
+- Ендпоїнти `/health` і `/alive` відкриті лише в середовищі Development (рішення шаблону Aspire).
+- Заголовок `Location` у відповідях на POST через Gateway містить внутрішню адресу сервісу: Gateway його не переписує.
+- Обмеження частоти запитів (rate limiting) і session affinity в лабі не реалізовані (згадані як додаткові).
