@@ -12,6 +12,7 @@ var useContainers = !string.Equals(
 IResourceBuilder<IResourceWithConnectionString> ordersDb;
 IResourceBuilder<IResourceWithConnectionString> catalogDb;
 IResourceBuilder<IResourceWithConnectionString> reviewsDb;
+IResourceBuilder<IResourceWithConnectionString> redis;
 
 if (useContainers)
 {
@@ -26,6 +27,9 @@ if (useContainers)
     var mongo = builder.AddMongoDB("mongo")
                        .WithDataVolume();
     reviewsDb = mongo.AddDatabase("ReviewsDb", "EastLeaf_ReviewsDB");
+
+    redis = builder.AddRedis("redis")
+                   .WithDataVolume();
 }
 else
 {
@@ -33,6 +37,7 @@ else
     ordersDb = builder.AddConnectionString("OrdersDb");
     catalogDb = builder.AddConnectionString("CatalogDb");
     reviewsDb = builder.AddConnectionString("ReviewsDb");
+    redis = builder.AddConnectionString("redis");
 }
 
 IResourceBuilder<ProjectResource> WithDb(
@@ -44,15 +49,22 @@ IResourceBuilder<ProjectResource> WithDb(
     return project;
 }
 
-// ---------- 2.2 Наявні мікросервіси ----------
+IResourceBuilder<ProjectResource> WithRedis(IResourceBuilder<ProjectResource> project)
+{
+    project.WithReference(redis);
+    if (useContainers) project.WaitFor(redis);
+    return project;
+}
+
+// ---------- 2.2 Мікросервіси ----------
 var orders = WithDb(builder.AddProject<Projects.Orders_Api>("orders-api"), ordersDb);
-var catalog = WithDb(builder.AddProject<Projects.Catalog_Api>("catalog-api"), catalogDb);
+var catalog = WithRedis(WithDb(builder.AddProject<Projects.Catalog_Api>("catalog-api"), catalogDb));
 var reviews = WithDb(builder.AddProject<Projects.Reviews_WebApi>("reviews-api"), reviewsDb);
 
 // ---------- 2.3 Aggregator та Gateway ----------
-var aggregator = builder.AddProject<Projects.Platform_Aggregator>("aggregator")
+var aggregator = WithRedis(builder.AddProject<Projects.Platform_Aggregator>("aggregator")
     .WithReference(orders).WithReference(catalog).WithReference(reviews)
-    .WaitFor(orders).WaitFor(catalog).WaitFor(reviews);
+    .WaitFor(orders).WaitFor(catalog).WaitFor(reviews));
 
 builder.AddProject<Projects.Platform_ApiGateway>("gateway")
     .WithHttpEndpoint(port: 5000, name: "public")
