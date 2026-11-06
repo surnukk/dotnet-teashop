@@ -6,11 +6,14 @@ option csharp_namespace = "Orders.Contracts";
 
 package orders;
 
+// Читання замовлень для внутрішніх сервісів (Aggregator).
 service OrdersService {
+  // Замовлення з позиціями. Якщо замовлення немає, повертає статус NotFound.
   rpc GetOrder (GetOrderRequest) returns (OrderReply);
 }
 
 message GetOrderRequest {
+  // Id замовлення, має бути додатним.
   int64 id = 1;
 }
 
@@ -25,8 +28,11 @@ message OrderItemReply {
 message OrderReply {
   int64 order_id = 1;
   int64 customer_id = 2;
-  optional int64 promotion_id = 3;    
+  // Акція заповнена не завжди: optional дає змогу відрізнити «немає акції» від 0.
+  optional int64 promotion_id = 3;
+  // Час створення замовлення (UTC).
   google.protobuf.Timestamp order_date = 4;
+  // Submitted, StockConfirmed, Shipped, Cancelled тощо.
   string order_state = 5;
   double total_amount = 6;
   repeated OrderItemReply items = 7;

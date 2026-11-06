@@ -32,6 +32,7 @@ namespace Microsoft.Extensions.Hosting
                 .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
                 .MinimumLevel.Override("System.Net.Http.HttpClient", LogEventLevel.Warning)
                 .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+                .MinimumLevel.Override("Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware", LogEventLevel.Fatal) 
                 .Enrich.FromLogContext()
                 .Enrich.WithProperty("ServiceName", builder.Environment.ApplicationName)
                 .Enrich.WithEnvironmentName()

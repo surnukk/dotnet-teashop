@@ -7,6 +7,7 @@ using Catalog.Bll.Services;
 using Catalog.Bll.Validators;
 using Catalog.Dal;
 using FluentValidation;
+using Catalog.Api.GrpcServices;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -45,6 +46,11 @@ builder.Services.AddHostedService<CacheWarmupService>();
 // Add services to the container.
 
 builder.Services.AddControllers(o => o.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true);
+
+
+builder.Services.AddGrpc(o => o.EnableDetailedErrors = builder.Environment.IsDevelopment());
+builder.Services.AddGrpcReflection();   // потр≥бен лише дл€ перев≥рки в кроках 9Ц10
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -77,6 +83,7 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.MapGrpcReflectionService();
 }
 
 //app.UseHttpsRedirection();
@@ -84,5 +91,7 @@ if (app.Environment.IsDevelopment())
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.MapGrpcService<CatalogGrpcService>();
 
 app.Run();

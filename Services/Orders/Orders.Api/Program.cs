@@ -7,6 +7,7 @@ using Orders.Bll.Mappings;
 using Orders.Bll.Services;
 using Orders.Dal;
 using Orders.Dal.Interfaces;
+using Orders.Api.GrpcServices;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,6 +43,9 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 
 builder.Services.AddControllers();
 
+builder.Services.AddGrpc(o => o.EnableDetailedErrors = builder.Environment.IsDevelopment());
+builder.Services.AddGrpcReflection();
+
 builder.Services.AddHostedService<CacheWarmupService>();
 
 builder.Services.AddEndpointsApiExplorer();
@@ -68,10 +72,12 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.MapGrpcReflectionService();
 }
 
 app.Logger.LogInformation("Database: {Database}",
     new SqlConnectionStringBuilder(connectionString).InitialCatalog);
 
 app.MapControllers();
+app.MapGrpcService<OrdersGrpcService>();
 app.Run();

@@ -21,7 +21,7 @@ message ProductReply {
   int64 id = 1;
   string name = 2;
   string category_name = 3;
-  double price = 4;        
+  double price = 4;
   int32 stock_quantity = 5;
   bool is_available = 6;
 }

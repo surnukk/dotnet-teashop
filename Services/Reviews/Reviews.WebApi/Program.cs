@@ -4,6 +4,7 @@ using Reviews.Application.Common.Mappings;
 using Reviews.Infrastructure;
 using Reviews.WebApi.ExceptionHandling;
 using Reviews.WebApi.HealthChecks;
+using Reviews.WebApi.GrpcServices;
 using Reviews.WebApi.Mapping;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -27,6 +28,10 @@ if (!string.IsNullOrWhiteSpace(aspireMongo))
     builder.Configuration["MongoDb:ConnectionString"] = aspireMongo;
 
 builder.Services.AddControllers();
+
+builder.Services.AddGrpc(o => o.EnableDetailedErrors = builder.Environment.IsDevelopment());
+builder.Services.AddGrpcReflection();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -56,8 +61,9 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.MapGrpcReflectionService();
 }
 
 app.MapControllers();
-
+app.MapGrpcService<ReviewsGrpcService>();
 app.Run();

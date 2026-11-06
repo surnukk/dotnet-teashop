@@ -41,6 +41,7 @@ public sealed class TieredCacheService(
         if (l1.TryGetValue(key, out CacheItem? item) && item?.Value is T cached)
         {
             Interlocked.Increment(ref _l1Hits);
+            CacheCallContext.Current?.RecordL1Hit();
             logger.LogDebug("Cache L1 hit {Key}: ttl left {TtlSeconds} s, size {SizeBytes} bytes",
                 key, Math.Max(0, (int)(item.ExpiresAt - DateTimeOffset.UtcNow).TotalSeconds), item.SizeBytes);
             return cached;
@@ -53,12 +54,14 @@ public sealed class TieredCacheService(
         if (fromL2 is { } hit)
         {
             Interlocked.Increment(ref _l2Hits);
+            CacheCallContext.Current?.RecordL2Hit();
             logger.LogDebug("Cache L2 hit {Key}: size {SizeBytes} bytes", key, hit.SizeBytes);
             SetL1(key, hit.Value, hit.SizeBytes, policy, groupToken);   // L2 → L1 (заповнення на зворотному шляху)
             return hit.Value;
         }
 
         Interlocked.Increment(ref _misses);
+        CacheCallContext.Current?.RecordMiss();
         logger.LogDebug("Cache miss {Key}", key);
 
         var value = await factory(ct);
