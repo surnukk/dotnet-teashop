@@ -54,7 +54,7 @@ public class CustomerService : ICustomerService
         _mapper.Map(request, customer);
         await _uow.Customers.UpdateAsync(customer, ct);
 
-        _cache.Remove(OrdersCache.Customer(customerId), "CustomerUpdated");
+        await _cache.RemoveAsync(OrdersCache.Customer(customerId), "CustomerUpdated");
     }
 
     public async Task DeleteAsync(long customerId, CancellationToken ct = default)
@@ -64,6 +64,6 @@ public class CustomerService : ICustomerService
 
         await _uow.Customers.DeleteAsync(customerId, ct);
 
-        _cache.Remove(OrdersCache.Customer(customerId), "CustomerDeleted");
+        await _cache.RemoveAsync(OrdersCache.Customer(customerId), "CustomerDeleted");
     }
 }

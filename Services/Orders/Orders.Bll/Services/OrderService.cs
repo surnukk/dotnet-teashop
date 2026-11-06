@@ -112,7 +112,7 @@ public class OrderService : IOrderService
 
             await _uow.CommitAsync(ct);
 
-            _cache.InvalidateOrder(orderId, "OrderCreated");
+            await _cache.InvalidateOrderAsync(orderId, "OrderCreated");
 
             _logger.LogInformation(
                     "Order {OrderId} created for customer {CustomerId}: {ItemsCount} items, amount {Amount}, status {Status}",
@@ -147,7 +147,7 @@ public class OrderService : IOrderService
             await _uow.Orders.ConfirmAsync(orderId, ct);
             await _uow.CommitAsync(ct);
 
-            _cache.InvalidateOrder(orderId, "OrderConfirmed");
+            await _cache.InvalidateOrderAsync(orderId, "OrderConfirmed");
 
             _logger.LogInformation("Order {OrderId} confirmed, {ItemsCount} items, status {Status}",
                 orderId, order.Items.Count, "StockConfirmed");
@@ -168,7 +168,7 @@ public class OrderService : IOrderService
 
             await _uow.CommitAsync(ct);
 
-            _cache.InvalidateOrder(orderId, "OrderCancelled"); 
+            await _cache.InvalidateOrderAsync(orderId, "OrderCancelled"); 
 
             _logger.LogInformation("Order {OrderId} cancelled, status {Status}", orderId, "Cancelled");
         }
@@ -183,7 +183,7 @@ public class OrderService : IOrderService
     {
         await _uow.Orders.ShipAsync(orderId, ct);
 
-        _cache.InvalidateOrder(orderId, "OrderShipped");
+        await _cache.InvalidateOrderAsync(orderId, "OrderShipped");
 
         _logger.LogInformation("Order {OrderId} shipped, status {Status}", orderId, "Shipped");
     }

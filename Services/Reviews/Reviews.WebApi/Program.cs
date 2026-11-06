@@ -10,13 +10,15 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
+builder.AddRedisDistributedCache("redis");   // IDistributedCache поверх Redis; рядок підключення Aspire передає сам
+
 builder.Services.AddMemoryCache(o =>
 {
     o.SizeLimit = 5_000;
     o.TrackStatistics = true;
     o.CompactionPercentage = 0.2;
 });
-builder.Services.AddSingleton<ICacheService, MemoryCacheService>();
+builder.Services.AddSingleton<ICacheService, TieredCacheService>();   // було MemoryCacheService
 builder.Services.AddHealthChecks().AddCheck<CacheHealthCheck>("cache");
 
 

@@ -10,8 +10,17 @@ public sealed record CacheEntryPolicy(
     int Size = 1);
 
 public sealed record CacheStatistics(
-    long Hits, long Misses, long Invalidations, long Evictions, long EntryCount, long? EstimatedSize)
+    long L1Hits,
+    long L2Hits,
+    long Misses,
+    long Invalidations,
+    long Evictions,
+    long L2Errors,
+    bool L2Available,
+    long EntryCount,
+    long? EstimatedSize)
 {
+    public long Hits => L1Hits + L2Hits;
     public double HitRatio => Hits + Misses == 0 ? 0 : (double)Hits / (Hits + Misses);
 }
 
@@ -23,7 +32,7 @@ public interface ICacheService
         CacheEntryPolicy policy,
         CancellationToken ct = default) where T : class;
 
-    void Remove(string key, string reason);
-    void RemoveGroup(string group, string reason);
+    Task RemoveAsync(string key, string reason, CancellationToken ct = default);
+    Task RemoveGroupAsync(string group, string reason, CancellationToken ct = default);
     CacheStatistics GetStatistics();
 }

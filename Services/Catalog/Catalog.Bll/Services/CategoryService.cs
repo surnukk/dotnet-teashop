@@ -47,7 +47,7 @@ public class CategoryService(IUnitOfWork uow, IMapper mapper, ILogger<CategorySe
         await uow.Categories.AddAsync(category, ct);
         await uow.SaveChangesAsync(ct);
 
-        cache.Remove(CatalogCache.Categories, "CategoryCreated");
+        await cache.RemoveAsync(CatalogCache.Categories, "CategoryCreated");
 
         logger.LogInformation("Category {CategoryId} created", category.CategoryId);
 
@@ -66,9 +66,9 @@ public class CategoryService(IUnitOfWork uow, IMapper mapper, ILogger<CategorySe
         category.Update(name, input.Descrip);
         await uow.SaveChangesAsync(ct);
 
-        cache.Remove(CatalogCache.Categories, "CategoryUpdated");
-        cache.RemoveGroup(CatalogCache.ListsGroup, "CategoryUpdated");
-        cache.RemoveGroup(CatalogCache.ProductCardsGroup, "CategoryUpdated");
+        await cache.RemoveAsync(CatalogCache.Categories, "CategoryUpdated");
+        await cache.RemoveGroupAsync(CatalogCache.ListsGroup, "CategoryUpdated");
+        await cache.RemoveGroupAsync(CatalogCache.ProductCardsGroup, "CategoryUpdated");
 
         logger.LogInformation("Category {CategoryId} updated", id);
 

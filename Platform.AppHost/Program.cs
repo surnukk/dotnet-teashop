@@ -57,9 +57,9 @@ IResourceBuilder<ProjectResource> WithRedis(IResourceBuilder<ProjectResource> pr
 }
 
 // ---------- 2.2 Мікросервіси ----------
-var orders = WithDb(builder.AddProject<Projects.Orders_Api>("orders-api"), ordersDb);
-var catalog = WithRedis(WithDb(builder.AddProject<Projects.Catalog_Api>("catalog-api"), catalogDb));
-var reviews = WithDb(builder.AddProject<Projects.Reviews_WebApi>("reviews-api"), reviewsDb);
+var orders = WithRedis(WithDb(builder.AddProject<Projects.Orders_Api>("orders-api"), ordersDb));
+var catalog = WithRedis(WithDb(builder.AddProject<Projects.Catalog_Api>("catalog-api"), catalogDb));   // без змін
+var reviews = WithRedis(WithDb(builder.AddProject<Projects.Reviews_WebApi>("reviews-api"), reviewsDb));
 
 // ---------- 2.3 Aggregator та Gateway ----------
 var aggregator = WithRedis(builder.AddProject<Projects.Platform_Aggregator>("aggregator")

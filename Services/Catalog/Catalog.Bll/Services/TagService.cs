@@ -49,7 +49,7 @@ public class TagService(IUnitOfWork uow, IMapper mapper, ILogger<TagService> log
         await uow.Tags.AddAsync(tag, ct);
         await uow.SaveChangesAsync(ct);
 
-        cache.Remove(CatalogCache.Tags, "TagCreated");
+        await cache.RemoveAsync(CatalogCache.Tags, "TagCreated");
 
         logger.LogInformation("Tag {TagId} created", tag.TagId);
 

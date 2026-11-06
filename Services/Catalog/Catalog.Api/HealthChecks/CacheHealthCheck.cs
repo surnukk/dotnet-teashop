@@ -11,11 +11,14 @@ public sealed class CacheHealthCheck(ICacheService cache) : IHealthCheck
 
         var data = new Dictionary<string, object>
         {
-            ["hits"] = s.Hits,
+            ["l1Hits"] = s.L1Hits,
+            ["l2Hits"] = s.L2Hits,
             ["misses"] = s.Misses,
             ["hitRatio"] = Math.Round(s.HitRatio, 3),
             ["invalidations"] = s.Invalidations,
             ["evictions"] = s.Evictions,
+            ["l2Errors"] = s.L2Errors,
+            ["l2Available"] = s.L2Available,
             ["entries"] = s.EntryCount,
             ["estimatedSize"] = s.EstimatedSize ?? 0
         };

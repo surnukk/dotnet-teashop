@@ -1,16 +1,19 @@
 using Catalog.Api.ExceptionHandling;
+using Catalog.Api.HealthChecks;
+using Catalog.Api.HostedServices;
+using Catalog.Bll.Caching;
 using Catalog.Bll.Mapping;
 using Catalog.Bll.Services;
 using Catalog.Bll.Validators;
 using Catalog.Dal;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
-using Catalog.Bll.Caching;
-using Catalog.Api.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();      // логування, трасування, health checks, service discovery
+
+builder.AddRedisDistributedCache("redis");   // IDistributedCache поверх Redis; рядок підключення Aspire передає сам
 
 builder.Services.AddMemoryCache(o =>
 {
@@ -18,7 +21,7 @@ builder.Services.AddMemoryCache(o =>
     o.TrackStatistics = true;  
     o.CompactionPercentage = 0.2; 
 });
-builder.Services.AddSingleton<ICacheService, MemoryCacheService>();
+builder.Services.AddSingleton<ICacheService, TieredCacheService>();   // було MemoryCacheService
 builder.Services.AddHealthChecks().AddCheck<CacheHealthCheck>("cache");
 
 builder.Services.AddDbContext<AppDbContext>(o =>
@@ -36,6 +39,8 @@ builder.Services.AddAutoMapper(cfg =>
 });
 
 builder.Services.AddValidatorsFromAssemblyContaining<CreateProductDtoValidator>();
+
+builder.Services.AddHostedService<CacheWarmupService>();
 
 // Add services to the container.
 

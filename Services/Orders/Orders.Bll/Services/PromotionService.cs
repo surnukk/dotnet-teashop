@@ -46,39 +46,47 @@ public class PromotionService : IPromotionService
         return result!;
     }
 
-    public async Task<long> CreateAsync(UpsertPromotionRequest request, CancellationToken ct = default)
-    {
-        ValidateDates(request);
-        var promo = _mapper.Map<Promotion>(request);
-        var id = await _uow.Promotions.AddAsync(promo, ct);
+	public async Task<long> CreateAsync(UpsertPromotionRequest request, CancellationToken ct = default)
+	{
+		ValidateDates(request);
+		var promo = _mapper.Map<Promotion>(request);
+		var id = await _uow.Promotions.AddAsync(promo, ct);
 
-        _cache.RemoveGroup(OrdersCache.PromotionsGroup, "PromotionCreated");  
-        return id;
-    }
+		await _cache.RemoveAsync(OrdersCache.ActivePromotions, "PromotionCreated");
+		await _cache.RemoveAsync(OrdersCache.PromotionByCode(request.Code), "PromotionCreated");
+		return id;
+	}
 
-    public async Task UpdateAsync(long promotionId, UpsertPromotionRequest request, CancellationToken ct = default)
-    {
-        ValidateDates(request);
+	public async Task UpdateAsync(long promotionId, UpsertPromotionRequest request, CancellationToken ct = default)
+	{
+		ValidateDates(request);
 
-        var promo = await _uow.Promotions.GetByIdAsync(promotionId, ct)
-                    ?? throw new NotFoundException($"Promotion {promotionId} not found");
+		var promo = await _uow.Promotions.GetByIdAsync(promotionId, ct)
+					?? throw new NotFoundException($"Promotion {promotionId} not found");
 
-        _mapper.Map(request, promo);
-        await _uow.Promotions.UpdateAsync(promo, ct);
+		var oldCode = promo.Code;   // код міг змінитись
+		_mapper.Map(request, promo);
+		await _uow.Promotions.UpdateAsync(promo, ct);
 
-        _cache.RemoveGroup(OrdersCache.PromotionsGroup, "PromotionUpdated");
-    }
+		await _cache.RemoveAsync(OrdersCache.Promotion(promotionId), "PromotionUpdated");
+		await _cache.RemoveAsync(OrdersCache.PromotionByCode(oldCode), "PromotionUpdated");
+		await _cache.RemoveAsync(OrdersCache.PromotionByCode(request.Code), "PromotionUpdated");
+		await _cache.RemoveAsync(OrdersCache.ActivePromotions, "PromotionUpdated");
+	}
 
-    public async Task DeleteAsync(long promotionId, CancellationToken ct = default)
-    {
-        _ = await _uow.Promotions.GetByIdAsync(promotionId, ct)
-            ?? throw new NotFoundException($"Promotion {promotionId} not found");
+	public async Task DeleteAsync(long promotionId, CancellationToken ct = default)
+	{
+		var promo = await _uow.Promotions.GetByIdAsync(promotionId, ct)
+					?? throw new NotFoundException($"Promotion {promotionId} not found");
 
-        await _uow.Promotions.DeleteAsync(promotionId, ct);
-        _cache.RemoveGroup(OrdersCache.PromotionsGroup, "PromotionDeleted");
-    }
+		await _uow.Promotions.DeleteAsync(promotionId, ct);
 
-    private static void ValidateDates(UpsertPromotionRequest request)
+		await _cache.RemoveAsync(OrdersCache.Promotion(promotionId), "PromotionDeleted");
+		await _cache.RemoveAsync(OrdersCache.PromotionByCode(promo.Code), "PromotionDeleted");
+		await _cache.RemoveAsync(OrdersCache.ActivePromotions, "PromotionDeleted");
+	}
+
+	private static void ValidateDates(UpsertPromotionRequest request)
     {
         if (request.EndDate <= request.StartDate)
             throw new ValidationException("EndDate must be greater than StartDate");

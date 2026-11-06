@@ -14,43 +14,39 @@ namespace Reviews.Application.Common.Behaviors;
 /// Уся матриця «яка команда що скидає» — в одному місці.
 /// </summary>
 public sealed class CacheInvalidationBehavior<TRequest, TResponse>(ICacheService cache)
-    : IPipelineBehavior<TRequest, TResponse>
-    where TRequest : notnull
+	: IPipelineBehavior<TRequest, TResponse>
+	where TRequest : notnull
 {
-    public async Task<TResponse> Handle(
-        TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken ct)
-    {
-        var response = await next(ct);
+	public async Task<TResponse> Handle(
+		TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken ct)
+	{
+		var response = await next(ct);
 
-        switch (request)
-        {
-            case CreateReviewCommand:
-                cache.RemoveGroup(ReviewsCache.ListsGroup, "ReviewCreated");
-                break;
+		switch (request)
+		{
+			case CreateReviewCommand:
+				await cache.RemoveGroupAsync(ReviewsCache.ListsGroup, "ReviewCreated", ct);
+				break;
+			case UpdateReviewCommand c:
+				await InvalidateAsync(c.Id, "ReviewUpdated", ct);
+				break;
+			case DeleteReviewCommand c:
+				await InvalidateAsync(c.Id, "ReviewDeleted", ct);
+				break;
+			case AddCommentCommand c:
+				await InvalidateAsync(c.ReviewId, "CommentAdded", ct);
+				break;
+			case RemoveCommentCommand c:
+				await InvalidateAsync(c.ReviewId, "CommentRemoved", ct);
+				break;
+		}
 
-            case UpdateReviewCommand c:
-                Invalidate(c.Id, "ReviewUpdated");     
-                break;
+		return response;
+	}
 
-            case DeleteReviewCommand c:
-                Invalidate(c.Id, "ReviewDeleted");
-                break;
-
-            case AddCommentCommand c:
-                Invalidate(c.ReviewId, "CommentAdded");
-                break;
-
-            case RemoveCommentCommand c:
-                Invalidate(c.ReviewId, "CommentRemoved");
-                break;
-        }
-
-        return response;
-    }
-
-    private void Invalidate(string reviewId, string reason)
-    {
-        cache.Remove(ReviewsCache.Review(reviewId), reason);
-        cache.RemoveGroup(ReviewsCache.ListsGroup, reason);
-    }
+	private async Task InvalidateAsync(string reviewId, string reason, CancellationToken ct)
+	{
+		await cache.RemoveAsync(ReviewsCache.Review(reviewId), reason, ct);
+		await cache.RemoveGroupAsync(ReviewsCache.ListsGroup, reason, ct);
+	}
 }

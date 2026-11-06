@@ -71,7 +71,7 @@ public class ProductService(IUnitOfWork uow, IMapper mapper, ILogger<ProductServ
         await uow.Products.AddAsync(product, ct);
         await uow.SaveChangesAsync(ct);
 
-        cache.RemoveGroup(CatalogCache.ListsGroup, "ProductCreated");
+        await cache.RemoveGroupAsync(CatalogCache.ListsGroup, "ProductCreated");
 
         logger.LogInformation("Product {ProductId} created in category {CategoryId}, price {Price}",
             product.ProductId, product.CategoryId, product.Price);
@@ -88,7 +88,7 @@ public class ProductService(IUnitOfWork uow, IMapper mapper, ILogger<ProductServ
         var oldPrice = product.Price;
         product.ChangePrice(input.Price);
         await uow.SaveChangesAsync(ct);
-        InvalidateProduct(id, "ProductPriceChanged");   // синхронно, одразу після запису
+        await InvalidateProductAsync(id, "ProductPriceChanged");   // синхронно, одразу після запису
 
         logger.LogInformation("Product {ProductId} price changed from {OldPrice} to {NewPrice}",
             id, oldPrice, product.Price);
@@ -101,7 +101,7 @@ public class ProductService(IUnitOfWork uow, IMapper mapper, ILogger<ProductServ
         var product = await GetOrThrowAsync(id, ct);
         product.AddStock(input.Quantity);              // кількість > 0: перевіряє сутність
         await uow.SaveChangesAsync(ct);
-        InvalidateProduct(id, "ProductStockAdded");
+        await InvalidateProductAsync(id, "ProductStockAdded");
 
         logger.LogInformation("Product {ProductId} stock increased by {Quantity}, now {Stock}",
             id, input.Quantity, product.StockQuantity);
@@ -114,7 +114,7 @@ public class ProductService(IUnitOfWork uow, IMapper mapper, ILogger<ProductServ
         var product = await GetOrThrowAsync(id, ct);
         product.RemoveStock(input.Quantity);           // достатній залишок: перевіряє сутність
         await uow.SaveChangesAsync(ct);
-        InvalidateProduct(id, "ProductStockRemoved");
+        await InvalidateProductAsync(id, "ProductStockRemoved");
 
         logger.LogInformation("Product {ProductId} stock decreased by {Quantity}, now {Stock}",
             id, input.Quantity, product.StockQuantity);
@@ -127,7 +127,7 @@ public class ProductService(IUnitOfWork uow, IMapper mapper, ILogger<ProductServ
         var product = await GetOrThrowAsync(id, ct);
         uow.Products.Delete(product);
         await uow.SaveChangesAsync(ct);
-        InvalidateProduct(id, "ProductDeleted");
+        await InvalidateProductAsync(id, "ProductDeleted");
         logger.LogInformation("Product {ProductId} deleted", id);
     }
 
@@ -147,7 +147,7 @@ public class ProductService(IUnitOfWork uow, IMapper mapper, ILogger<ProductServ
 
         await uow.ProductTags.AddAsync(new ProductTag { ProductId = productId, TagId = tagId }, ct);
         await uow.SaveChangesAsync(ct);
-        InvalidateProduct(productId, "ProductTagAdded");   // теги є в картці й у фільтрі списків
+        await InvalidateProductAsync(productId, "ProductTagAdded");   // теги є в картці й у фільтрі списків
         logger.LogInformation("Tag {TagId} added to product {ProductId}", tagId, productId);
     }
 
@@ -158,13 +158,13 @@ public class ProductService(IUnitOfWork uow, IMapper mapper, ILogger<ProductServ
 
         uow.ProductTags.Delete(link);
         await uow.SaveChangesAsync(ct);
-        InvalidateProduct(productId, "ProductTagRemoved");
+        await InvalidateProductAsync(productId, "ProductTagRemoved");
         logger.LogInformation("Tag {TagId} removed from product {ProductId}", tagId, productId);
     }
 
-    private void InvalidateProduct(int id, string reason)
-    {
-        cache.Remove(CatalogCache.Product(id), reason);
-        cache.RemoveGroup(CatalogCache.ListsGroup, reason);
-    }
+	private async Task InvalidateProductAsync(int id, string reason)
+	{
+		await cache.RemoveAsync(CatalogCache.Product(id), reason);
+		await cache.RemoveGroupAsync(CatalogCache.ListsGroup, reason);
+	}
 }

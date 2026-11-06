@@ -18,12 +18,12 @@ public static class OrdersCache
     public static string CustomerOrders(long customerId) => $"orders:customer:{customerId}:orders";
     public static string Payment(long orderId) => $"orders:payment:{orderId}";
 
-    public static void InvalidateOrder(this ICacheService cache, long orderId, string reason)
-    {
-        cache.Remove(Order(orderId), reason);
-        cache.Remove(Payment(orderId), reason);
-        cache.RemoveGroup(OrderListsGroup, reason);
-    }
+	public static async Task InvalidateOrderAsync(this ICacheService cache, long orderId, string reason)
+	{
+		await cache.RemoveAsync(Order(orderId), reason);
+		await cache.RemoveAsync(Payment(orderId), reason);
+		await cache.RemoveGroupAsync(OrderListsGroup, reason);
+	}
 }
 
 public static class OrdersCachePolicies
@@ -33,8 +33,7 @@ public static class OrdersCachePolicies
         Priority: CacheItemPriority.High);
 
     public static readonly CacheEntryPolicy Promotion = new(
-        Absolute: TimeSpan.FromMinutes(2),
-        Group: OrdersCache.PromotionsGroup);
+        Absolute: TimeSpan.FromMinutes(2));
 
     public static readonly CacheEntryPolicy Customer = new(
         Absolute: TimeSpan.FromMinutes(1),

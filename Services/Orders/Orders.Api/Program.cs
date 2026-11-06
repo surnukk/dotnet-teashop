@@ -1,15 +1,18 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
+using Orders.Api.HealthChecks;
+using Orders.Api.HostedServices;
+using Orders.Bll.Caching;
 using Orders.Bll.Mappings;
 using Orders.Bll.Services;
 using Orders.Dal;
 using Orders.Dal.Interfaces;
-using Orders.Bll.Caching;
-using Orders.Api.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+
+builder.AddRedisDistributedCache("redis");   // IDistributedCache поверх Redis; рядок підключення Aspire передає сам
 
 builder.Services.AddMemoryCache(o =>
 {
@@ -17,7 +20,7 @@ builder.Services.AddMemoryCache(o =>
     o.TrackStatistics = true;
     o.CompactionPercentage = 0.2;
 });
-builder.Services.AddSingleton<ICacheService, MemoryCacheService>();
+builder.Services.AddSingleton<ICacheService, TieredCacheService>();   // було MemoryCacheService
 builder.Services.AddHealthChecks().AddCheck<CacheHealthCheck>("cache");
 
 var connectionString = builder.Configuration.GetConnectionString("OrdersDb")
@@ -38,6 +41,8 @@ builder.Services.AddScoped<IPromotionService, PromotionService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 
 builder.Services.AddControllers();
+
+builder.Services.AddHostedService<CacheWarmupService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

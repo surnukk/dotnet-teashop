@@ -36,7 +36,7 @@ public class PaymentService : IPaymentService
     {
         await _uow.Orders.MarkAsPaidAsync(orderId, paymentMethod, amount, ct);
 
-        _cache.InvalidateOrder(orderId, "OrderPaid");
+        await _cache.InvalidateOrderAsync(orderId, "OrderPaid");
 
         _logger.LogInformation("Order {OrderId} paid: amount {Amount}, method {PaymentMethod}", orderId, amount, paymentMethod);
     }
@@ -52,7 +52,7 @@ public class PaymentService : IPaymentService
         payment.PaymentStatus = "Refunded";
         await _uow.Payments.UpdateAsync(payment, ct);
 
-        _cache.InvalidateOrder(orderId, "PaymentRefunded");
+        await _cache.InvalidateOrderAsync(orderId, "PaymentRefunded");
 
         _logger.LogInformation("Payment for order {OrderId} refunded", orderId);
     }
