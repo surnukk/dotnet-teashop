@@ -5,10 +5,21 @@ using Catalog.Bll.Validators;
 using Catalog.Dal;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Catalog.Bll.Caching;
+using Catalog.Api.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();      // логування, трасування, health checks, service discovery
+
+builder.Services.AddMemoryCache(o =>
+{
+    o.SizeLimit = 10_000;  
+    o.TrackStatistics = true;  
+    o.CompactionPercentage = 0.2; 
+});
+builder.Services.AddSingleton<ICacheService, MemoryCacheService>();
+builder.Services.AddHealthChecks().AddCheck<CacheHealthCheck>("cache");
 
 builder.Services.AddDbContext<AppDbContext>(o =>
     o.UseSqlServer(builder.Configuration.GetConnectionString("CatalogDb")));

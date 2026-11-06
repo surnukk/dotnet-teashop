@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using Microsoft.Data.SqlClient;
+using Orders.Bll.Caching;
 using Orders.Bll.DTO;
 using Orders.Bll.Services;
 using Orders.Dal.Interfaces;
@@ -18,24 +19,32 @@ public class OrderService : IOrderService
     private readonly IUnitOfWork _uow;
     private readonly IMapper _mapper;
     private readonly ILogger<OrderService> _logger;
+    private readonly ICacheService _cache;
 
-    public OrderService(IUnitOfWork uow, IMapper mapper, ILogger<OrderService> logger)
+    public OrderService(IUnitOfWork uow, IMapper mapper, ILogger<OrderService> logger, ICacheService cache)
     {
         _uow = uow;
         _mapper = mapper;
         _logger = logger;
+        _cache = cache;
     }
 
-    public async Task<OrderDto?> GetByIdAsync(long orderId, CancellationToken ct = default)
-    {
-        var order = await _uow.Orders.GetWithItemsAsync(orderId, ct);
-        return order == null ? null : _mapper.Map<OrderDto>(order);
-    }
+    public Task<OrderDto?> GetByIdAsync(long orderId, CancellationToken ct = default)
+        => _cache.GetOrCreateAsync<OrderDto>(OrdersCache.Order(orderId), async token =>
+        {
+            var order = await _uow.Orders.GetWithItemsAsync(orderId, token);
+            return order == null ? null : _mapper.Map<OrderDto>(order);
+        }, OrdersCachePolicies.Order, ct);
 
     public async Task<IEnumerable<OrderDto>> GetByCustomerIdAsync(long customerId, CancellationToken ct = default)
     {
-        var orders = await _uow.Orders.GetByCustomerAsync(customerId, ct);
-        return _mapper.Map<IEnumerable<OrderDto>>(orders);
+        var result = await _cache.GetOrCreateAsync<IEnumerable<OrderDto>>(OrdersCache.CustomerOrders(customerId), async token =>
+        {
+            var orders = await _uow.Orders.GetByCustomerAsync(customerId, token);
+            return _mapper.Map<IEnumerable<OrderDto>>(orders).ToList();
+        }, OrdersCachePolicies.OrderList, ct);
+
+        return result!;
     }
 
     public async Task<long> CreateOrderAsync(CreateOrderRequest request, CancellationToken ct = default)
@@ -102,6 +111,9 @@ public class OrderService : IOrderService
             }
 
             await _uow.CommitAsync(ct);
+
+            _cache.InvalidateOrder(orderId, "OrderCreated");
+
             _logger.LogInformation(
                     "Order {OrderId} created for customer {CustomerId}: {ItemsCount} items, amount {Amount}, status {Status}",
                     orderId, request.CustomerId, items.Count, total, "Submitted");
@@ -128,8 +140,14 @@ public class OrderService : IOrderService
             if (order.Items.Count == 0)
                 throw new BusinessConflictException($"Order {orderId} has no items");
 
+            if (order.OrderState != "Submitted")
+                throw new BusinessConflictException(
+                    $"Order {orderId} cannot be confirmed: current state is '{order.OrderState}'");
+
             await _uow.Orders.ConfirmAsync(orderId, ct);
             await _uow.CommitAsync(ct);
+
+            _cache.InvalidateOrder(orderId, "OrderConfirmed");
 
             _logger.LogInformation("Order {OrderId} confirmed, {ItemsCount} items, status {Status}",
                 orderId, order.Items.Count, "StockConfirmed");
@@ -149,6 +167,9 @@ public class OrderService : IOrderService
             await _uow.Orders.CancelAsync(orderId, ct);
 
             await _uow.CommitAsync(ct);
+
+            _cache.InvalidateOrder(orderId, "OrderCancelled"); 
+
             _logger.LogInformation("Order {OrderId} cancelled, status {Status}", orderId, "Cancelled");
         }
         catch
@@ -161,6 +182,9 @@ public class OrderService : IOrderService
     public async Task ShipOrderAsync(long orderId, CancellationToken ct = default)
     {
         await _uow.Orders.ShipAsync(orderId, ct);
+
+        _cache.InvalidateOrder(orderId, "OrderShipped");
+
         _logger.LogInformation("Order {OrderId} shipped, status {Status}", orderId, "Shipped");
     }
 }

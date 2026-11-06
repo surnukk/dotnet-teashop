@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Orders.Bll.Caching;
 using Orders.Bll.DTO;
 using Orders.Bll.Services;
 using Orders.Dal.Interfaces;
@@ -11,18 +12,21 @@ public class CustomerService : ICustomerService
 {
     private readonly IUnitOfWork _uow;
     private readonly IMapper _mapper;
+    private readonly ICacheService _cache;
 
-    public CustomerService(IUnitOfWork uow, IMapper mapper)
+    public CustomerService(IUnitOfWork uow, IMapper mapper, ICacheService cache)
     {
         _uow = uow;
         _mapper = mapper;
+        _cache = cache;
     }
 
-    public async Task<CustomerDto?> GetByIdAsync(long customerId, CancellationToken ct = default)
-    {
-        var customer = await _uow.Customers.GetByIdAsync(customerId, ct);
-        return customer == null ? null : _mapper.Map<CustomerDto>(customer);
-    }
+    public Task<CustomerDto?> GetByIdAsync(long customerId, CancellationToken ct = default)
+        => _cache.GetOrCreateAsync<CustomerDto>(OrdersCache.Customer(customerId), async token =>
+        {
+            var customer = await _uow.Customers.GetByIdAsync(customerId, token);
+            return customer == null ? null : _mapper.Map<CustomerDto>(customer);
+        }, OrdersCachePolicies.Customer, ct);
 
     public async Task<CustomerDto?> GetByEmailAsync(string email, CancellationToken ct = default)
     {
@@ -49,6 +53,8 @@ public class CustomerService : ICustomerService
 
         _mapper.Map(request, customer);
         await _uow.Customers.UpdateAsync(customer, ct);
+
+        _cache.Remove(OrdersCache.Customer(customerId), "CustomerUpdated");
     }
 
     public async Task DeleteAsync(long customerId, CancellationToken ct = default)
@@ -57,5 +63,7 @@ public class CustomerService : ICustomerService
             ?? throw new NotFoundException($"Customer {customerId} not found");
 
         await _uow.Customers.DeleteAsync(customerId, ct);
+
+        _cache.Remove(OrdersCache.Customer(customerId), "CustomerDeleted");
     }
 }

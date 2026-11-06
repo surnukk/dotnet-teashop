@@ -131,8 +131,10 @@ namespace Microsoft.Extensions.Hosting
             // See https://aka.ms/dotnet/aspire/healthchecks for details before enabling these endpoints in non-development environments.
             if (app.Environment.IsDevelopment())
             {
-                // All health checks must pass for app to be considered ready to accept traffic after starting
-                app.MapHealthChecks(HealthEndpointPath);
+                app.MapHealthChecks(HealthEndpointPath, new HealthCheckOptions
+                {
+                    ResponseWriter = WriteHealthResponse
+                });
 
                 // Only health checks tagged with the "live" tag must pass for app to be considered alive
                 app.MapHealthChecks(AlivenessEndpointPath, new HealthCheckOptions
@@ -142,6 +144,19 @@ namespace Microsoft.Extensions.Hosting
             }
 
             return app;
+        }
+
+        private static Task WriteHealthResponse(HttpContext context, HealthReport report)
+        {
+            var payload = new
+            {
+                status = report.Status.ToString(),
+                durationMs = (int)report.TotalDuration.TotalMilliseconds,
+                checks = report.Entries.ToDictionary(
+                    e => e.Key,
+                    e => new { status = e.Value.Status.ToString(), description = e.Value.Description, data = e.Value.Data })
+            };
+            return context.Response.WriteAsJsonAsync(payload);
         }
     }
 }

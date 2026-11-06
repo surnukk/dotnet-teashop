@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Catalog.Bll.Caching;
 using Catalog.Bll.DTO;
 using Catalog.Dal;
 using Catalog.Dal.Repositories;
@@ -14,7 +15,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Catalog.Bll.Services;
 
-public class ProductService(IUnitOfWork uow, IMapper mapper, ILogger<ProductService> logger) : IProductService
+public class ProductService(IUnitOfWork uow, IMapper mapper, ILogger<ProductService> logger, ICacheService cache) : IProductService
 {
     private static readonly ActivitySource Source = new("Catalog.Api");
 
@@ -34,33 +35,43 @@ public class ProductService(IUnitOfWork uow, IMapper mapper, ILogger<ProductServ
         var filter = new ProductFilter(page, pageSize, q.Search, q.CategoryId, q.TagId,
                                        q.MinPrice, q.MaxPrice, q.IsAvailable, sortBy, descending);
 
-        var items = await uow.Products.ListAsync(new ProductsPageSpec(filter), ct);
-        var total = await uow.Products.CountAsync(new ProductsFilterSpec(filter), ct);
+        var key = CatalogCache.ProductList(page, pageSize, q.Search, q.CategoryId, q.TagId,
+                                           q.MinPrice, q.MaxPrice, q.IsAvailable, sortBy, descending);
 
-        return new PagedResult<ProductDto>(mapper.Map<List<ProductDto>>(items), total, page, pageSize);
+        var result = await cache.GetOrCreateAsync<PagedResult<ProductDto>>(key, async token =>
+        {
+            var items = await uow.Products.ListAsync(new ProductsPageSpec(filter), token);
+            var total = await uow.Products.CountAsync(new ProductsFilterSpec(filter), token);
+            return new PagedResult<ProductDto>(mapper.Map<List<ProductDto>>(items), total, page, pageSize);
+        }, CatalogCachePolicies.List, ct);
+
+        return result!;
     }
 
-    // Eager Loading: картка товару одним запитом
     public async Task<ProductDetailsDto> GetByIdAsync(int id, CancellationToken ct)
     {
-        var product = await uow.Products.GetWithDetailsAsync(id, ct)
-            ?? throw new EntityNotFoundException(nameof(Product), id);
-        return mapper.Map<ProductDetailsDto>(product);
+        var dto = await cache.GetOrCreateAsync<ProductDetailsDto>(CatalogCache.Product(id), async token =>
+        {
+            var product = await uow.Products.GetWithDetailsAsync(id, token);
+            return product is null ? null : mapper.Map<ProductDetailsDto>(product);
+        }, CatalogCachePolicies.ProductCard, ct);
+
+        return dto ?? throw new EntityNotFoundException(nameof(Product), id);
     }
 
     public async Task<ProductDto> CreateAsync(CreateProductDto input, CancellationToken ct)
     {
-        // правила, яким потрібні дані з БД, перевіряє сервіс
         if (await uow.Categories.GetByIdAsync(input.CategoryId, ct) is null)
             throw new EntityNotFoundException(nameof(Category), input.CategoryId);
 
         if (await uow.Products.ExistsByNameAsync(input.ProductName.Trim(), ct))
             throw new ConflictException($"Product '{input.ProductName}' already exists");
 
-        // правила самої сутності (назва не порожня, ціна > 0) перевіряє конструктор
         var product = new Product(input.CategoryId, input.ProductName, input.Price);
         await uow.Products.AddAsync(product, ct);
         await uow.SaveChangesAsync(ct);
+
+        cache.RemoveGroup(CatalogCache.ListsGroup, "ProductCreated");
 
         logger.LogInformation("Product {ProductId} created in category {CategoryId}, price {Price}",
             product.ProductId, product.CategoryId, product.Price);
@@ -77,6 +88,7 @@ public class ProductService(IUnitOfWork uow, IMapper mapper, ILogger<ProductServ
         var oldPrice = product.Price;
         product.ChangePrice(input.Price);
         await uow.SaveChangesAsync(ct);
+        InvalidateProduct(id, "ProductPriceChanged");   // синхронно, одразу після запису
 
         logger.LogInformation("Product {ProductId} price changed from {OldPrice} to {NewPrice}",
             id, oldPrice, product.Price);
@@ -89,6 +101,7 @@ public class ProductService(IUnitOfWork uow, IMapper mapper, ILogger<ProductServ
         var product = await GetOrThrowAsync(id, ct);
         product.AddStock(input.Quantity);              // кількість > 0: перевіряє сутність
         await uow.SaveChangesAsync(ct);
+        InvalidateProduct(id, "ProductStockAdded");
 
         logger.LogInformation("Product {ProductId} stock increased by {Quantity}, now {Stock}",
             id, input.Quantity, product.StockQuantity);
@@ -101,6 +114,7 @@ public class ProductService(IUnitOfWork uow, IMapper mapper, ILogger<ProductServ
         var product = await GetOrThrowAsync(id, ct);
         product.RemoveStock(input.Quantity);           // достатній залишок: перевіряє сутність
         await uow.SaveChangesAsync(ct);
+        InvalidateProduct(id, "ProductStockRemoved");
 
         logger.LogInformation("Product {ProductId} stock decreased by {Quantity}, now {Stock}",
             id, input.Quantity, product.StockQuantity);
@@ -113,10 +127,10 @@ public class ProductService(IUnitOfWork uow, IMapper mapper, ILogger<ProductServ
         var product = await GetOrThrowAsync(id, ct);
         uow.Products.Delete(product);
         await uow.SaveChangesAsync(ct);
+        InvalidateProduct(id, "ProductDeleted");
         logger.LogInformation("Product {ProductId} deleted", id);
     }
 
-    // GetByIdAsync повертає відстежувану сутність, тому Update перед збереженням не потрібен
     private async Task<Product> GetOrThrowAsync(int id, CancellationToken ct)
         => await uow.Products.GetByIdAsync(id, ct)
            ?? throw new EntityNotFoundException(nameof(Product), id);
@@ -133,6 +147,7 @@ public class ProductService(IUnitOfWork uow, IMapper mapper, ILogger<ProductServ
 
         await uow.ProductTags.AddAsync(new ProductTag { ProductId = productId, TagId = tagId }, ct);
         await uow.SaveChangesAsync(ct);
+        InvalidateProduct(productId, "ProductTagAdded");   // теги є в картці й у фільтрі списків
         logger.LogInformation("Tag {TagId} added to product {ProductId}", tagId, productId);
     }
 
@@ -143,6 +158,13 @@ public class ProductService(IUnitOfWork uow, IMapper mapper, ILogger<ProductServ
 
         uow.ProductTags.Delete(link);
         await uow.SaveChangesAsync(ct);
+        InvalidateProduct(productId, "ProductTagRemoved");
         logger.LogInformation("Tag {TagId} removed from product {ProductId}", tagId, productId);
+    }
+
+    private void InvalidateProduct(int id, string reason)
+    {
+        cache.Remove(CatalogCache.Product(id), reason);
+        cache.RemoveGroup(CatalogCache.ListsGroup, reason);
     }
 }

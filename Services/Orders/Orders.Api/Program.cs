@@ -4,10 +4,21 @@ using Orders.Bll.Mappings;
 using Orders.Bll.Services;
 using Orders.Dal;
 using Orders.Dal.Interfaces;
+using Orders.Bll.Caching;
+using Orders.Api.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+
+builder.Services.AddMemoryCache(o =>
+{
+    o.SizeLimit = 5_000;
+    o.TrackStatistics = true;
+    o.CompactionPercentage = 0.2;
+});
+builder.Services.AddSingleton<ICacheService, MemoryCacheService>();
+builder.Services.AddHealthChecks().AddCheck<CacheHealthCheck>("cache");
 
 var connectionString = builder.Configuration.GetConnectionString("OrdersDb")
     ?? throw new InvalidOperationException("Connection string 'OrdersDb' is missing");

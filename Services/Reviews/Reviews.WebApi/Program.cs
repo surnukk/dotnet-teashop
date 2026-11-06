@@ -1,13 +1,24 @@
 using Reviews.Application;
+using Reviews.Application.Common.Caching;
 using Reviews.Application.Common.Mappings;
 using Reviews.Infrastructure;
+using Reviews.WebApi.ExceptionHandling;
 using Reviews.WebApi.HealthChecks;
 using Reviews.WebApi.Mapping;
-using Reviews.WebApi.ExceptionHandling;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+
+builder.Services.AddMemoryCache(o =>
+{
+    o.SizeLimit = 5_000;
+    o.TrackStatistics = true;
+    o.CompactionPercentage = 0.2;
+});
+builder.Services.AddSingleton<ICacheService, MemoryCacheService>();
+builder.Services.AddHealthChecks().AddCheck<CacheHealthCheck>("cache");
+
 
 var aspireMongo = builder.Configuration.GetConnectionString("ReviewsDb");
 if (!string.IsNullOrWhiteSpace(aspireMongo))
