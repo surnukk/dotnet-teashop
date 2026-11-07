@@ -1,4 +1,6 @@
 using Catalog.Api.ExceptionHandling;
+using Catalog.Api.Grpc;
+using Catalog.Api.GrpcServices;
 using Catalog.Api.HealthChecks;
 using Catalog.Api.HostedServices;
 using Catalog.Bll.Caching;
@@ -7,8 +9,8 @@ using Catalog.Bll.Services;
 using Catalog.Bll.Validators;
 using Catalog.Dal;
 using FluentValidation;
-using Catalog.Api.GrpcServices;
 using Microsoft.EntityFrameworkCore;
+using Catalog.Api.Metrics;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +24,7 @@ builder.Services.AddMemoryCache(o =>
     o.TrackStatistics = true;  
     o.CompactionPercentage = 0.2; 
 });
+builder.Services.AddSingleton<ICacheMetrics, CacheMetrics>();
 builder.Services.AddSingleton<ICacheService, TieredCacheService>();   // було MemoryCacheService
 builder.Services.AddHealthChecks().AddCheck<CacheHealthCheck>("cache");
 
@@ -48,7 +51,11 @@ builder.Services.AddHostedService<CacheWarmupService>();
 builder.Services.AddControllers(o => o.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true);
 
 
-builder.Services.AddGrpc(o => o.EnableDetailedErrors = builder.Environment.IsDevelopment());
+builder.Services.AddGrpc(o =>
+{
+    o.EnableDetailedErrors = builder.Environment.IsDevelopment();
+    o.Interceptors.Add<LoggingInterceptor>();    
+});
 builder.Services.AddGrpcReflection();   // потр≥бен лише дл€ перев≥рки в кроках 9Ц10
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

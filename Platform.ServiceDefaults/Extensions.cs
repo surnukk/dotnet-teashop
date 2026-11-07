@@ -78,7 +78,11 @@ namespace Microsoft.Extensions.Hosting
                 metrics.AddAspNetCoreInstrumentation()
                        .AddHttpClientInstrumentation()
                        .AddRuntimeInstrumentation()
-                       .AddMeter("Yarp.ReverseProxy");
+                       .AddMeter("Yarp.ReverseProxy")
+                       .AddMeter("Catalog.Cache")
+                       .AddMeter("Orders.Cache")
+                       .AddMeter("Reviews.Cache")
+                       .AddMeter("Grpc.Net.Client");
             })
             .WithTracing(tracing =>
             {

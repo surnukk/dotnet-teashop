@@ -8,6 +8,7 @@ using Orders.Bll.Services;
 using Orders.Dal;
 using Orders.Dal.Interfaces;
 using Orders.Api.GrpcServices;
+using Orders.Api.Metrics;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +22,8 @@ builder.Services.AddMemoryCache(o =>
     o.TrackStatistics = true;
     o.CompactionPercentage = 0.2;
 });
+
+builder.Services.AddSingleton<ICacheMetrics, CacheMetrics>();
 builder.Services.AddSingleton<ICacheService, TieredCacheService>();   // було MemoryCacheService
 builder.Services.AddHealthChecks().AddCheck<CacheHealthCheck>("cache");
 
@@ -43,7 +46,11 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 
 builder.Services.AddControllers();
 
-builder.Services.AddGrpc(o => o.EnableDetailedErrors = builder.Environment.IsDevelopment());
+builder.Services.AddGrpc(o =>
+{
+    o.EnableDetailedErrors = builder.Environment.IsDevelopment();
+    o.Interceptors.Add<LoggingInterceptor>();          // 6.2
+});
 builder.Services.AddGrpcReflection();
 
 builder.Services.AddHostedService<CacheWarmupService>();

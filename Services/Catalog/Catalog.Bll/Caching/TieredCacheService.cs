@@ -8,17 +8,10 @@ using Microsoft.Extensions.Primitives;
 
 namespace Catalog.Bll.Caching;
 
-/// <summary>Те, що реально лежить у Redis: версія групи, з якою записали, і самі дані.</summary>
 public sealed record L2Envelope<T>(string? V, T D);
 
-/// <summary>
-/// Дворівневий кеш: L1 (IMemoryCache) → L2 (Redis через IDistributedCache) → БД.
-/// Якщо Redis недоступний, сервіс працює лише з L1 і БД.
-/// </summary>
 public sealed class TieredCacheService(
-    IMemoryCache l1,
-    IDistributedCache l2,
-    ILogger<TieredCacheService> logger) : ICacheService
+    IMemoryCache l1, IDistributedCache l2, ICacheMetrics metrics, ILogger<TieredCacheService> logger) : ICacheService
 {
     private static readonly TimeSpan L2CallTimeout = TimeSpan.FromMilliseconds(500);   // довше на Redis не чекаємо
     private static readonly TimeSpan L2RetryAfter = TimeSpan.FromSeconds(15);         // після збою 15 с не чіпаємо Redis
@@ -43,10 +36,12 @@ public sealed class TieredCacheService(
         CacheEntryPolicy policy,
         CancellationToken ct = default) where T : class
     {
+        using var _ = metrics.Time("get_or_create");
         if (l1.TryGetValue(key, out CacheItem? item) && item?.Value is T cached)
         {
             Interlocked.Increment(ref _l1Hits);
             CacheCallContext.Current?.RecordL1Hit();
+            metrics.L1Hit();
             logger.LogDebug("Cache L1 hit {Key}: ttl left {TtlSeconds} s, size {SizeBytes} bytes",
                 key, Math.Max(0, (int)(item.ExpiresAt - DateTimeOffset.UtcNow).TotalSeconds), item.SizeBytes);
             return cached;
@@ -60,6 +55,7 @@ public sealed class TieredCacheService(
         {
             Interlocked.Increment(ref _l2Hits);
             CacheCallContext.Current?.RecordL2Hit();
+            metrics.L2Hit();
             logger.LogDebug("Cache L2 hit {Key}: size {SizeBytes} bytes", key, hit.SizeBytes);
             SetL1(key, hit.Value, hit.SizeBytes, policy, groupToken);   // L2 → L1 (заповнення на зворотному шляху)
             return hit.Value;
@@ -67,6 +63,7 @@ public sealed class TieredCacheService(
 
         Interlocked.Increment(ref _misses);
         CacheCallContext.Current?.RecordMiss();
+        metrics.FullMiss();
         logger.LogDebug("Cache miss {Key}", key);
 
         var value = await factory(ct);
@@ -86,6 +83,8 @@ public sealed class TieredCacheService(
 
     public async Task RemoveAsync(string key, string reason, CancellationToken ct = default)
     {
+        using var _ = metrics.Time("remove");
+        metrics.Invalidated("key");
         l1.Remove(key);
         await RunL2Async(token => l2.RemoveAsync(key, token), ct);
 
@@ -95,6 +94,9 @@ public sealed class TieredCacheService(
 
     public async Task RemoveGroupAsync(string group, string reason, CancellationToken ct = default)
     {
+        using var _ = metrics.Time("remove_group");
+        metrics.Invalidated("group");
+
         if (_groups.TryRemove(group, out var source))
             source.Cancel();
 

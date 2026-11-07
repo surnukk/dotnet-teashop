@@ -6,6 +6,7 @@ using Reviews.WebApi.ExceptionHandling;
 using Reviews.WebApi.HealthChecks;
 using Reviews.WebApi.GrpcServices;
 using Reviews.WebApi.Mapping;
+using Reviews.WebApi.Metrics;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +20,8 @@ builder.Services.AddMemoryCache(o =>
     o.TrackStatistics = true;
     o.CompactionPercentage = 0.2;
 });
+
+builder.Services.AddSingleton<ICacheMetrics, CacheMetrics>();
 builder.Services.AddSingleton<ICacheService, TieredCacheService>();   // було MemoryCacheService
 builder.Services.AddHealthChecks().AddCheck<CacheHealthCheck>("cache");
 
@@ -29,7 +32,11 @@ if (!string.IsNullOrWhiteSpace(aspireMongo))
 
 builder.Services.AddControllers();
 
-builder.Services.AddGrpc(o => o.EnableDetailedErrors = builder.Environment.IsDevelopment());
+builder.Services.AddGrpc(o =>
+{
+    o.EnableDetailedErrors = builder.Environment.IsDevelopment();
+    o.Interceptors.Add<LoggingInterceptor>();        
+});
 builder.Services.AddGrpcReflection();
 
 builder.Services.AddEndpointsApiExplorer();
