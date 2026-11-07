@@ -1,11 +1,17 @@
 using System.Text.Json.Serialization;
-using Platform.Aggregator.Clients;
+using Catalog.Contracts;
+using Grpc.Core;
+using Orders.Contracts;
+using Reviews.Contracts;
 using Platform.Aggregator.Services;
 using Microsoft.Extensions.Http.Resilience;
+using Platform.Aggregator.Caching;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+
+builder.AddRedisDistributedCache("redis");   
 
 builder.Services.ConfigureAll<HttpStandardResilienceOptions>(o =>
 {
@@ -18,12 +24,13 @@ builder.Services.ConfigureAll<HttpStandardResilienceOptions>(o =>
 builder.Services.ConfigureHttpJsonOptions(o =>
     o.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull);
 
-// 6.1: типізовані клієнти; адреса за іменем сервісу, схема «https, якщо доступний, інакше http»
-builder.Services.AddHttpClient<OrdersClient>(c => c.BaseAddress = new("https+http://orders-api"));
-builder.Services.AddHttpClient<CatalogClient>(c => c.BaseAddress = new("https+http://catalog-api"));
-builder.Services.AddHttpClient<ReviewsClient>(c => c.BaseAddress = new("https+http://reviews-api"));
+// 5.1: типізовані gRPC-клієнти; адреса за іменем сервісу, service discovery працює як для HttpClient
+builder.Services.AddGrpcClient<OrdersService.OrdersServiceClient>(o => o.Address = new Uri("https://orders-api"));
+builder.Services.AddGrpcClient<CatalogService.CatalogServiceClient>(o => o.Address = new Uri("https://catalog-api"));
+builder.Services.AddGrpcClient<ReviewsService.ReviewsServiceClient>(o => o.Address = new Uri("https://reviews-api"));
 
 builder.Services.AddScoped<OrderAggregator>();
+builder.Services.AddSingleton<AggregateCache>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -39,7 +46,6 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// 6.2: GET /api/aggregator/orders/{id}/full
 app.MapGet("/api/aggregator/orders/{id:long}/full",
     async (long id, OrderAggregator aggregator, CancellationToken ct) =>
     {
@@ -50,13 +56,26 @@ app.MapGet("/api/aggregator/orders/{id:long}/full",
                 ? Results.Problem(statusCode: 404, title: "Order not found", detail: $"Order {id} was not found")
                 : Results.Ok(result);
         }
-        catch (Exception ex) when (ex is HttpRequestException
-                              or Polly.Timeout.TimeoutRejectedException
-                              or Polly.CircuitBreaker.BrokenCircuitException)
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.InvalidArgument)
         {
-            // недоступний саме orders-api: без замовлення відповісти нічого
+            return Results.Problem(statusCode: 400, title: "Invalid request", detail: ex.Status.Detail);
+        }
+        catch (RpcException ex) when (ex.StatusCode == StatusCode.Cancelled && ct.IsCancellationRequested)
+        {
+            return Results.StatusCode(499);           
+        }
+        catch (Exception ex) when (OrderAggregator.IsServiceFailure(ex))
+        {
             return Results.Problem(statusCode: 503, title: "orders-api is unavailable", detail: ex.Message);
         }
+    })
+    .WithTags("Aggregator");
+
+app.MapDelete("/api/aggregator/orders/{id:long}/cache",
+    async (long id, AggregateCache cache, CancellationToken ct) =>
+    {
+        await cache.RemoveAsync(AggregateCache.FullOrderKey(id), ct);
+        return Results.NoContent();
     })
     .WithTags("Aggregator");
 
