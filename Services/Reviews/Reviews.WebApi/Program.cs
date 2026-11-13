@@ -3,8 +3,9 @@ using Reviews.Application.Common.Caching;
 using Reviews.Application.Common.Mappings;
 using Reviews.Infrastructure;
 using Reviews.WebApi.ExceptionHandling;
-using Reviews.WebApi.HealthChecks;
+using Reviews.WebApi.Grpc;
 using Reviews.WebApi.GrpcServices;
+using Reviews.WebApi.HealthChecks;
 using Reviews.WebApi.Mapping;
 using Reviews.WebApi.Metrics;
 
@@ -32,10 +33,13 @@ if (!string.IsNullOrWhiteSpace(aspireMongo))
 
 builder.Services.AddControllers();
 
+builder.Services.AddSingleton<FaultInjection>();
 builder.Services.AddGrpc(o =>
 {
     o.EnableDetailedErrors = builder.Environment.IsDevelopment();
-    o.Interceptors.Add<LoggingInterceptor>();        
+    o.Interceptors.Add<LoggingInterceptor>();
+    if (builder.Environment.IsDevelopment())
+        o.Interceptors.Add<FaultInjectionInterceptor>();
 });
 builder.Services.AddGrpcReflection();
 
@@ -58,6 +62,15 @@ builder.Services.AddAutoMapper(cfg =>
 builder.Services.AddHealthChecks().AddCheck<MongoHealthCheck>("mongodb");
 
 var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapGet("/api/test/delay/{ms:int}", (int ms, FaultInjection faults) =>
+    {
+        faults.DelayMs = Math.Clamp(ms, 0, 30_000);
+        return Results.Ok(new { delayMs = faults.DelayMs });
+    });
+}
 
 app.UseMiddleware<CorrelationIdMiddleware>();
 

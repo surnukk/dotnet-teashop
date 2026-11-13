@@ -109,7 +109,8 @@ public class OrderAggregator(OrdersService.OrdersServiceClient orders, CatalogSe
         RpcException
         {
             StatusCode: StatusCode.Unavailable or StatusCode.DeadlineExceeded
-                                   or StatusCode.Internal or StatusCode.Unknown
+                           or StatusCode.ResourceExhausted
+                           or StatusCode.Internal or StatusCode.Unknown
         }
         or HttpRequestException
         or Polly.Timeout.TimeoutRejectedException

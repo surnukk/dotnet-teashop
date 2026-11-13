@@ -52,6 +52,9 @@ namespace Microsoft.Extensions.Hosting
 
             builder.Services.ConfigureHttpClientDefaults(http =>
             {
+                // 1.1: стандартний resilience-обробник (rate limiter → total timeout → retry → circuit breaker → attempt timeout)
+                // підключається ОДИН раз для всіх HttpClient і gRPC-клієнтів; в інших місцях AddStandardResilienceHandler() не викликаємо,
+                // щоб обробники не нашаровувалися. Для кастомного клієнта спершу RemoveAllResilienceHandlers(), потім власний.
                 http.AddStandardResilienceHandler();
                 http.AddServiceDiscovery();
                 http.AddHttpMessageHandler<CorrelationIdHandler>();
@@ -82,7 +85,8 @@ namespace Microsoft.Extensions.Hosting
                        .AddMeter("Catalog.Cache")
                        .AddMeter("Orders.Cache")
                        .AddMeter("Reviews.Cache")
-                       .AddMeter("Grpc.Net.Client");
+                       .AddMeter("Grpc.Net.Client")
+                       .AddMeter("Polly");
             })
             .WithTracing(tracing =>
             {

@@ -6,6 +6,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+	<PropertyGroup>
+		<NoWarn>$(NoWarn);EXTEXP0001</NoWarn>
+	</PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Aspire.StackExchange.Redis.DistributedCaching" Version="9.5.0" />
     <PackageReference Include="Google.Protobuf" Version="3.36.2" />

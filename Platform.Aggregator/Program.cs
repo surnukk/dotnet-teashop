@@ -1,33 +1,36 @@
-using System.Text.Json.Serialization;
 using Catalog.Contracts;
 using Grpc.Core;
-using Orders.Contracts;
-using Reviews.Contracts;
-using Platform.Aggregator.Services;
 using Microsoft.Extensions.Http.Resilience;
+using Microsoft.Extensions.Options;
+using Orders.Contracts;
 using Platform.Aggregator.Caching;
+using Platform.Aggregator.Resilience;
+using Platform.Aggregator.Services;
+using Reviews.Contracts;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
-builder.AddRedisDistributedCache("redis");   
+builder.AddRedisDistributedCache("redis");
 
-builder.Services.ConfigureAll<HttpStandardResilienceOptions>(o =>
-{
-    o.Retry.MaxRetryAttempts = 1;                        
-    o.AttemptTimeout.Timeout = TimeSpan.FromSeconds(3);       
-    o.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(8); 
-});
+builder.Services.AddSingleton<IConfigureOptions<HttpStandardResilienceOptions>, AggregatorResilienceSetup>();
 
-// 6.3: camelCase за замовчуванням, null-значення не серіалізуються
 builder.Services.ConfigureHttpJsonOptions(o =>
     o.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull);
 
-// 5.1: типізовані gRPC-клієнти; адреса за іменем сервісу, service discovery працює як для HttpClient
-builder.Services.AddGrpcClient<OrdersService.OrdersServiceClient>(o => o.Address = new Uri("https://orders-api"));
-builder.Services.AddGrpcClient<CatalogService.CatalogServiceClient>(o => o.Address = new Uri("https://catalog-api"));
-builder.Services.AddGrpcClient<ReviewsService.ReviewsServiceClient>(o => o.Address = new Uri("https://reviews-api"));
+builder.Services.AddGrpcClient<OrdersService.OrdersServiceClient>(o => o.Address = new Uri("https://orders-api"))
+    .ConfigureChannel(c => c.ServiceConfig = GrpcRetryPolicy.Create());
+
+builder.Services.AddGrpcClient<CatalogService.CatalogServiceClient>(o => o.Address = new Uri("https://catalog-api"))
+    .ConfigureChannel(c => c.ServiceConfig = GrpcRetryPolicy.Create(maxAttempts: 4))
+    .RemoveAllResilienceHandlers()      
+    .AddStandardResilienceHandler(ResiliencePolicies.Critical);   
+
+builder.Services.AddGrpcClient<ReviewsService.ReviewsServiceClient>(o => o.Address = new Uri("https://reviews-api"))
+    .RemoveAllResilienceHandlers()
+    .AddStandardResilienceHandler(ResiliencePolicies.NonCritical);
 
 builder.Services.AddScoped<OrderAggregator>();
 builder.Services.AddSingleton<AggregateCache>();
