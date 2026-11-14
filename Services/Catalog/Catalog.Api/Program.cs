@@ -24,6 +24,8 @@ builder.Services.AddMemoryCache(o =>
     o.TrackStatistics = true;  
     o.CompactionPercentage = 0.2; 
 });
+
+builder.Services.AddSingleton<CatalogMetrics>();
 builder.Services.AddSingleton<ICacheMetrics, CacheMetrics>();
 builder.Services.AddSingleton<ICacheService, TieredCacheService>();   // було MemoryCacheService
 builder.Services.AddHealthChecks().AddCheck<CacheHealthCheck>("cache");

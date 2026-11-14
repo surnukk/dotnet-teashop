@@ -82,11 +82,19 @@ namespace Microsoft.Extensions.Hosting
                        .AddHttpClientInstrumentation()
                        .AddRuntimeInstrumentation()
                        .AddMeter("Yarp.ReverseProxy")
+                       .AddMeter("Orders.Api")
+                       .AddMeter("Catalog.Api")
+                       .AddMeter("Reviews.Api")
                        .AddMeter("Catalog.Cache")
                        .AddMeter("Orders.Cache")
                        .AddMeter("Reviews.Cache")
                        .AddMeter("Grpc.Net.Client")
-                       .AddMeter("Polly");
+                       .AddMeter("Polly")
+                       // межі кошиків для всіх гістограм тривалості (*.operation.duration), мс
+                       .AddView("*.operation.duration", new ExplicitBucketHistogramConfiguration
+                       {
+                           Boundaries = new double[] { 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000 }
+                       });
             })
             .WithTracing(tracing =>
             {

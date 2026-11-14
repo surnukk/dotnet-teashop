@@ -10,11 +10,12 @@ using Reviews.Application.Common.Models;
 using Reviews.Application.Queries.GetReviewById;
 using Reviews.Application.Queries.GetReviewsList;
 using Reviews.WebApi.Contracts;
+using Reviews.WebApi.Metrics;
 
 namespace Reviews.WebApi.Controllers;
 
 [Route("api/reviews")]
-public class ReviewsController(ISender mediator, IMapper mapper) : ApiControllerBase(mediator)
+public class ReviewsController(ISender mediator, IMapper mapper, ReviewMetrics metrics) : ApiControllerBase(mediator)
 {
     /// <summary>Список відгуків (фільтр за товаром, пагінація).</summary>
     [HttpGet]
@@ -25,7 +26,8 @@ public class ReviewsController(ISender mediator, IMapper mapper) : ApiController
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken ct = default)
-        => Ok(await Mediator.Send(new GetReviewsListQuery(productId, page, pageSize), ct));
+        => Ok(await metrics.MeasureAsync("list",
+            () => Mediator.Send(new GetReviewsListQuery(productId, page, pageSize), ct)));
 
     /// <summary>Відгук за Id. Версія документа повертається в заголовку ETag.</summary>
     [HttpGet("{id}")]
@@ -34,7 +36,7 @@ public class ReviewsController(ISender mediator, IMapper mapper) : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ReviewDto>> GetById(string id, CancellationToken ct)
     {
-        var review = await Mediator.Send(new GetReviewByIdQuery(id), ct);
+        var review = await metrics.MeasureAsync("get_by_id", () => Mediator.Send(new GetReviewByIdQuery(id), ct));
         Response.Headers.ETag = $"\"{review.Version}\"";
         return Ok(review);
     }
@@ -46,7 +48,8 @@ public class ReviewsController(ISender mediator, IMapper mapper) : ApiController
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<string>> Create(CreateReviewRequest request, CancellationToken ct)
     {
-        var id = await Mediator.Send(mapper.Map<CreateReviewCommand>(request), ct);
+        var id = await metrics.MeasureAsync("create", () => Mediator.Send(mapper.Map<CreateReviewCommand>(request), ct));
+        metrics.ReviewCreated(request.Rating);
         return CreatedAtAction(nameof(GetById), new { id }, id);
     }
 
@@ -67,7 +70,9 @@ public class ReviewsController(ISender mediator, IMapper mapper) : ApiController
                 detail: "Header If-Match with the review version is required, e.g. If-Match: \"0\"",
                 statusCode: StatusCodes.Status400BadRequest);
 
-        await Mediator.Send(new UpdateReviewCommand(id, request.Rating, request.Text, expectedVersion), ct);
+        await metrics.MeasureCommandAsync("update",
+            () => Mediator.Send(new UpdateReviewCommand(id, request.Rating, request.Text, expectedVersion), ct));
+        metrics.ReviewUpdated();
         return NoContent();
     }
 
@@ -78,7 +83,8 @@ public class ReviewsController(ISender mediator, IMapper mapper) : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(string id, CancellationToken ct)
     {
-        await Mediator.Send(new DeleteReviewCommand(id), ct);
+        await metrics.MeasureCommandAsync("delete", () => Mediator.Send(new DeleteReviewCommand(id), ct));
+        metrics.ReviewDeleted();
         return NoContent();
     }
 
@@ -90,8 +96,9 @@ public class ReviewsController(ISender mediator, IMapper mapper) : ApiController
     public async Task<ActionResult<string>> AddComment(
         string id, AddCommentRequest request, CancellationToken ct)
     {
-        var commentId = await Mediator.Send(
-            new AddCommentCommand(id, request.AuthorId, request.AuthorName, request.Text), ct);
+        var commentId = await metrics.MeasureAsync("add_comment",
+            () => Mediator.Send(new AddCommentCommand(id, request.AuthorId, request.AuthorName, request.Text), ct));
+        metrics.CommentAdded();
         return CreatedAtAction(nameof(GetById), new { id }, commentId);
     }
 
@@ -102,7 +109,8 @@ public class ReviewsController(ISender mediator, IMapper mapper) : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> RemoveComment(string id, string commentId, CancellationToken ct)
     {
-        await Mediator.Send(new RemoveCommentCommand(id, commentId), ct);
+        await metrics.MeasureCommandAsync("remove_comment",
+            () => Mediator.Send(new RemoveCommentCommand(id, commentId), ct));
         return NoContent();
     }
 }
