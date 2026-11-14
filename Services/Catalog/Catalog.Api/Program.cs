@@ -15,8 +15,9 @@ using Catalog.Api.Metrics;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();      // логування, трасування, health checks, service discovery
+builder.AddCatalogHealthChecks();
 
-builder.AddRedisDistributedCache("redis");   // IDistributedCache поверх Redis; рядок підключення Aspire передає сам
+builder.AddRedisDistributedCache("redis", settings => settings.DisableHealthChecks = true);   // IDistributedCache поверх Redis; рядок підключення Aspire передає сам
 
 builder.Services.AddMemoryCache(o =>
 {
@@ -102,5 +103,6 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.MapGrpcService<CatalogGrpcService>();
+app.MapGrpcHealthChecksService();
 
 app.Run();

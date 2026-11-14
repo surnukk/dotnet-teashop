@@ -12,8 +12,9 @@ using Reviews.WebApi.Metrics;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+builder.AddReviewsHealthChecks();
 
-builder.AddRedisDistributedCache("redis");   // IDistributedCache поверх Redis; рядок підключення Aspire передає сам
+builder.AddRedisDistributedCache("redis", settings => settings.DisableHealthChecks = true);   // IDistributedCache поверх Redis; рядок підключення Aspire передає сам
 
 builder.Services.AddMemoryCache(o =>
 {
@@ -60,8 +61,6 @@ builder.Services.AddAutoMapper(cfg =>
     cfg.AddMaps(typeof(ReviewProfile), typeof(ReviewRequestProfile));
 });
 
-builder.Services.AddHealthChecks().AddCheck<MongoHealthCheck>("mongodb");
-
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -86,5 +85,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapControllers();
+
 app.MapGrpcService<ReviewsGrpcService>();
+app.MapGrpcHealthChecksService();
 app.Run();

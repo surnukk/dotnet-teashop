@@ -13,8 +13,9 @@ using Orders.Api.Metrics;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+builder.AddOrdersHealthChecks();
 
-builder.AddRedisDistributedCache("redis");   // IDistributedCache поверх Redis; рядок підключення Aspire передає сам
+builder.AddRedisDistributedCache("redis", settings => settings.DisableHealthChecks = true);
 
 builder.Services.AddMemoryCache(o =>
 {
@@ -88,4 +89,5 @@ app.Logger.LogInformation("Database: {Database}",
 
 app.MapControllers();
 app.MapGrpcService<OrdersGrpcService>();
+app.MapGrpcHealthChecksService();       
 app.Run();

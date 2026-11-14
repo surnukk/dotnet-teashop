@@ -13,6 +13,7 @@ using OpenTelemetry.Trace;
 using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Compact;
+using Platform.ServiceDefaults.HealthChecks;
 
 namespace Microsoft.Extensions.Hosting
 {
@@ -135,26 +136,43 @@ namespace Microsoft.Extensions.Hosting
 
         public static TBuilder AddDefaultHealthChecks<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder
         {
+            builder.Services.AddSingleton<StartupHealthCheck>();
+
             builder.Services.AddHealthChecks()
-                // Add a default liveness check to ensure app is responsive
-                .AddCheck("self", () => HealthCheckResult.Healthy(), ["live"]);
+                // liveness: лише чи відповідає процес, без зовнішніх залежностей (має бути швидким, < 100 мс)
+                .AddCheck("self", () => HealthCheckResult.Healthy(), ["live"])
+                .AddCheck<StartupHealthCheck>("startup", tags: ["startup"]);
 
             return builder;
         }
 
         public static WebApplication MapDefaultEndpoints(this WebApplication app)
         {
-            // Adding health checks endpoints to applications in non-development environments has security implications.
-            // See https://aka.ms/dotnet/aspire/healthchecks for details before enabling these endpoints in non-development environments.
+            var showErrors = app.Environment.IsDevelopment();
+
+            app.MapHealthChecks("/health/live", new HealthCheckOptions
+            {
+                Predicate = check => check.Tags.Contains("live")
+            });
+
+            app.MapHealthChecks("/health/ready", new HealthCheckOptions
+            {
+                Predicate = check => check.Tags.Contains("ready"),
+                ResponseWriter = (context, report) => HealthJsonWriter.WriteAsync(context, report, showErrors)
+            });
+
+            app.MapHealthChecks("/health/startup", new HealthCheckOptions
+            {
+                Predicate = check => check.Tags.Contains("startup")
+            });
+
             if (app.Environment.IsDevelopment())
             {
-                app.MapHealthChecks(HealthEndpointPath, new HealthCheckOptions
+                app.MapHealthChecks("/health", new HealthCheckOptions
                 {
-                    ResponseWriter = WriteHealthResponse
+                    ResponseWriter = (context, report) => HealthJsonWriter.WriteAsync(context, report, includeErrors: true)
                 });
-
-                // Only health checks tagged with the "live" tag must pass for app to be considered alive
-                app.MapHealthChecks(AlivenessEndpointPath, new HealthCheckOptions
+                app.MapHealthChecks("/alive", new HealthCheckOptions
                 {
                     Predicate = r => r.Tags.Contains("live")
                 });

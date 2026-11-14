@@ -8,12 +8,14 @@ using Platform.Aggregator.Resilience;
 using Platform.Aggregator.Services;
 using Reviews.Contracts;
 using System.Text.Json.Serialization;
+using Platform.Aggregator.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+builder.AddAggregatorHealthChecks();
 
-builder.AddRedisDistributedCache("redis");
+builder.AddRedisDistributedCache("redis", settings => settings.DisableHealthChecks = true);
 
 builder.Services.AddSingleton<IConfigureOptions<HttpStandardResilienceOptions>, AggregatorResilienceSetup>();
 
