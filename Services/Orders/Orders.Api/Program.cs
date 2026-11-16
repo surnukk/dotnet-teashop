@@ -9,10 +9,15 @@ using Orders.Dal;
 using Orders.Dal.Interfaces;
 using Orders.Api.GrpcServices;
 using Orders.Api.Metrics;
+using Platform.EventBus;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+
+builder.AddRabbitMQClient("messaging");      
+builder.Services.AddEventBusTopology();
+
 builder.AddOrdersHealthChecks();
 
 builder.AddRedisDistributedCache("redis", settings => settings.DisableHealthChecks = true);

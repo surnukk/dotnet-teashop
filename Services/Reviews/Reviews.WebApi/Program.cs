@@ -8,10 +8,15 @@ using Reviews.WebApi.GrpcServices;
 using Reviews.WebApi.HealthChecks;
 using Reviews.WebApi.Mapping;
 using Reviews.WebApi.Metrics;
+using Platform.EventBus;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+
+builder.AddRabbitMQClient("messaging");
+builder.Services.AddEventBusTopology();
+
 builder.AddReviewsHealthChecks();
 
 builder.AddRedisDistributedCache("redis", settings => settings.DisableHealthChecks = true);   // IDistributedCache поверх Redis; рядок підключення Aspire передає сам

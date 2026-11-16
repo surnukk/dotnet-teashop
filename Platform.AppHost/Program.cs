@@ -13,6 +13,7 @@ IResourceBuilder<IResourceWithConnectionString> ordersDb;
 IResourceBuilder<IResourceWithConnectionString> catalogDb;
 IResourceBuilder<IResourceWithConnectionString> reviewsDb;
 IResourceBuilder<IResourceWithConnectionString> redis;
+IResourceBuilder<IResourceWithConnectionString> rabbit;
 
 if (useContainers)
 {
@@ -30,6 +31,11 @@ if (useContainers)
 
     redis = builder.AddRedis("redis")
                    .WithDataVolume();
+
+    var rabbitPassword = builder.AddParameter("rabbit-password", secret: true);
+    rabbit = builder.AddRabbitMQ("messaging", password: rabbitPassword)
+                    .WithDataVolume()
+                    .WithManagementPlugin();
 }
 else
 {
@@ -38,6 +44,7 @@ else
     catalogDb = builder.AddConnectionString("CatalogDb");
     reviewsDb = builder.AddConnectionString("ReviewsDb");
     redis = builder.AddConnectionString("redis");
+    rabbit = builder.AddConnectionString("messaging");
 }
 
 IResourceBuilder<ProjectResource> WithDb(
@@ -56,10 +63,17 @@ IResourceBuilder<ProjectResource> WithRedis(IResourceBuilder<ProjectResource> pr
     return project;
 }
 
+IResourceBuilder<ProjectResource> WithRabbit(IResourceBuilder<ProjectResource> project)
+{
+    project.WithReference(rabbit);
+    if (useContainers) project.WaitFor(rabbit);
+    return project;
+}
+
 // ---------- 2.2 Мікросервіси ----------
-var orders = WithRedis(WithDb(builder.AddProject<Projects.Orders_Api>("orders-api", launchProfileName: "https"), ordersDb)).WithHttpHealthCheck("/health", endpointName: "http");
-var catalog = WithRedis(WithDb(builder.AddProject<Projects.Catalog_Api>("catalog-api", launchProfileName: "https"), catalogDb)).WithHttpHealthCheck("/health", endpointName: "http");
-var reviews = WithRedis(WithDb(builder.AddProject<Projects.Reviews_WebApi>("reviews-api", launchProfileName: "https"), reviewsDb)).WithHttpHealthCheck("/health", endpointName: "http");
+var orders = WithRabbit(WithRedis(WithDb(builder.AddProject<Projects.Orders_Api>("orders-api", launchProfileName: "https"), ordersDb))).WithHttpHealthCheck("/health", endpointName: "http");
+var catalog = WithRabbit(WithRedis(WithDb(builder.AddProject<Projects.Catalog_Api>("catalog-api", launchProfileName: "https"), catalogDb))).WithHttpHealthCheck("/health", endpointName: "http");
+var reviews = WithRabbit(WithRedis(WithDb(builder.AddProject<Projects.Reviews_WebApi>("reviews-api", launchProfileName: "https"), reviewsDb))).WithHttpHealthCheck("/health", endpointName: "http");
 
 // ---------- 2.3 Aggregator та Gateway ----------
 var aggregator = WithRedis(builder.AddProject<Projects.Platform_Aggregator>("aggregator")

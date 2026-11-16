@@ -45,6 +45,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Platform.ApiGateway", "Plat
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Platform.Aggregator", "Platform.Aggregator\Platform.Aggregator.csproj", "{DCF5E5C7-D21C-D6F7-7449-CF67D5DEF3E1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Platform.EventBus", "Platform.EventBus\Platform.EventBus.csproj", "{E56FEB53-DE8D-44CA-826E-88C5ACBDDFFF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -259,6 +261,18 @@ Global
 		{DCF5E5C7-D21C-D6F7-7449-CF67D5DEF3E1}.Release|x64.Build.0 = Release|Any CPU
 		{DCF5E5C7-D21C-D6F7-7449-CF67D5DEF3E1}.Release|x86.ActiveCfg = Release|Any CPU
 		{DCF5E5C7-D21C-D6F7-7449-CF67D5DEF3E1}.Release|x86.Build.0 = Release|Any CPU
+		{E56FEB53-DE8D-44CA-826E-88C5ACBDDFFF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E56FEB53-DE8D-44CA-826E-88C5ACBDDFFF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E56FEB53-DE8D-44CA-826E-88C5ACBDDFFF}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{E56FEB53-DE8D-44CA-826E-88C5ACBDDFFF}.Debug|x64.Build.0 = Debug|Any CPU
+		{E56FEB53-DE8D-44CA-826E-88C5ACBDDFFF}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{E56FEB53-DE8D-44CA-826E-88C5ACBDDFFF}.Debug|x86.Build.0 = Debug|Any CPU
+		{E56FEB53-DE8D-44CA-826E-88C5ACBDDFFF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E56FEB53-DE8D-44CA-826E-88C5ACBDDFFF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E56FEB53-DE8D-44CA-826E-88C5ACBDDFFF}.Release|x64.ActiveCfg = Release|Any CPU
+		{E56FEB53-DE8D-44CA-826E-88C5ACBDDFFF}.Release|x64.Build.0 = Release|Any CPU
+		{E56FEB53-DE8D-44CA-826E-88C5ACBDDFFF}.Release|x86.ActiveCfg = Release|Any CPU
+		{E56FEB53-DE8D-44CA-826E-88C5ACBDDFFF}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

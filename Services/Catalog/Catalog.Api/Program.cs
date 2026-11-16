@@ -11,10 +11,15 @@ using Catalog.Dal;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Catalog.Api.Metrics;
+using Platform.EventBus;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();      // логування, трасування, health checks, service discovery
+
+builder.AddRabbitMQClient("messaging");        // реєструє IConnection (singleton) + телеметрію
+builder.Services.AddEventBusTopology();
+
 builder.AddCatalogHealthChecks();
 
 builder.AddRedisDistributedCache("redis", settings => settings.DisableHealthChecks = true);   // IDistributedCache поверх Redis; рядок підключення Aspire передає сам
