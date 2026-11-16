@@ -8,6 +8,8 @@ using Platform.EventBus.Serialization;
 using Platform.EventBus.Topology;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using System.Diagnostics;
+using Platform.EventBus.Tracing;
 
 namespace Platform.EventBus.Consuming;
 
@@ -49,6 +51,8 @@ public abstract class RabbitMqConsumerBase(
         var eventType = ea.BasicProperties.Type;
         var correlationId = ReadHeader(ea, "x-correlation-id");
 
+        using var activity = TracePropagation.StartConsumerActivity(ea, QueueName);
+
         using var logScope = logger.BeginScope(new Dictionary<string, object?>
         {
             ["EventId"] = messageId,
@@ -69,22 +73,24 @@ public abstract class RabbitMqConsumerBase(
             var @event = Deserialize(ea, registration.EventType);
             logger.LogInformation("Received {EventType} {EventId}", eventType, @event.EventId);
 
-            await using var scope = scopes.CreateAsyncScope();     // залежності — у межах scope повідомлення
+            await using var scope = scopes.CreateAsyncScope();
             await registration.Handle(scope.ServiceProvider, @event, CancellationToken.None);
         }
-        catch (JsonException ex)                                   // постійний збій: повтор не допоможе
+        catch (JsonException ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             logger.LogError(ex, "Malformed message {MessageId}, sending to DLQ", messageId);
             await NackToDeadLetterAsync(ea, "malformed message");
             return;
         }
-        catch (Exception ex)                                       // збій обробки
+        catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             await RetryOrDeadLetterAsync(ea, ex);
             return;
         }
 
-        await AckAsync(ea);                                        // успіх
+        await AckAsync(ea);
     }
 
     private static IntegrationEvent Deserialize(BasicDeliverEventArgs ea, Type eventType)

@@ -103,7 +103,8 @@ namespace Microsoft.Extensions.Hosting
                       .SetSampler(builder.Environment.IsDevelopment()
                             ? new AlwaysOnSampler()
                             : new TraceIdRatioBasedSampler(builder.Configuration.GetValue("Telemetry:SamplingRatio", 0.1)))
-                      .AddSource(builder.Environment.ApplicationName)             
+                      .AddSource(builder.Environment.ApplicationName)
+                      .AddSource("Platform.Messaging")
                       .AddSource("MongoDB.Driver.Core.Extensions.DiagnosticSources")      // MongoDB
                       .AddAspNetCoreInstrumentation()                                 
                       .AddHttpClientInstrumentation()

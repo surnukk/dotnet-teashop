@@ -4,6 +4,7 @@ using Platform.EventBus.Abstractions;
 using Platform.EventBus.Events;
 using Platform.EventBus.Serialization;
 using RabbitMQ.Client;
+using Platform.EventBus.Tracing;
 
 namespace Platform.EventBus.Publishing;
 
@@ -33,6 +34,10 @@ public sealed class RabbitMqEventPublisher(IConnection connection, ILogger<Rabbi
             Timestamp = new AmqpTimestamp(new DateTimeOffset(@event.OccurredAt.ToUniversalTime()).ToUnixTimeSeconds()),
             Headers = headers
         };
+
+        using var activity = TracePropagation.StartProducerActivity(
+    exchange, routingKey, eventType, props.MessageId, @event.CorrelationId);
+        TracePropagation.Inject(props);       // traceparent (+ tracestate, baggage) у заголовки
 
         var body = JsonSerializer.SerializeToUtf8Bytes(@event, @event.GetType(), JsonDefaults.Options);
 
