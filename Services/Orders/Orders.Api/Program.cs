@@ -1,18 +1,19 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
+using Orders.Api.GrpcServices;
 using Orders.Api.HealthChecks;
 using Orders.Api.HostedServices;
+using Orders.Api.IntegrationEvents;
+using Orders.Api.Metrics;
 using Orders.Bll.Caching;
 using Orders.Bll.Mappings;
 using Orders.Bll.Services;
 using Orders.Dal;
 using Orders.Dal.Interfaces;
-using Orders.Api.GrpcServices;
-using Orders.Api.Metrics;
-using Platform.EventBus;
-using Orders.Api.IntegrationEvents;
 using Orders.Dal.Migrations;
+using Platform.EventBus;
 using Platform.EventBus.Events;
+using Platform.EventBus.Topology;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,6 +27,7 @@ builder.Services.AddEventHandler<ProductPriceChangedEvent, ProductPriceChangedHa
 builder.Services.AddEventHandler<ProductRenamedEvent, ProductRenamedHandler>();
 builder.Services.AddEventHandler<ProductDeletedEvent, ProductDeletedHandler>();
 builder.Services.AddHostedService<CatalogEventsConsumer>();
+builder.Services.AddDlqDepthMonitor(EventBusTopology.OrdersCatalogSyncQueue);
 
 builder.AddOrdersHealthChecks();
 

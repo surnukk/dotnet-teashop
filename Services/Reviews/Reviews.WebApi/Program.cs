@@ -1,3 +1,6 @@
+using Platform.EventBus;
+using Platform.EventBus.Events;
+using Platform.EventBus.Topology;
 using Reviews.Application;
 using Reviews.Application.Common.Caching;
 using Reviews.Application.Common.Mappings;
@@ -6,11 +9,9 @@ using Reviews.WebApi.ExceptionHandling;
 using Reviews.WebApi.Grpc;
 using Reviews.WebApi.GrpcServices;
 using Reviews.WebApi.HealthChecks;
+using Reviews.WebApi.IntegrationEvents;
 using Reviews.WebApi.Mapping;
 using Reviews.WebApi.Metrics;
-using Platform.EventBus;
-using Platform.EventBus.Events;
-using Reviews.WebApi.IntegrationEvents;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +22,7 @@ builder.Services.AddEventBusTopology();
 
 builder.Services.AddEventHandler<ProductRenamedEvent, ProductRenamedHandler>();
 builder.Services.AddHostedService<CatalogEventsConsumer>();
+builder.Services.AddDlqDepthMonitor(EventBusTopology.ReviewsCatalogSyncQueue);
 
 builder.AddReviewsHealthChecks();
 

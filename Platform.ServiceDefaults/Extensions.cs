@@ -91,6 +91,7 @@ namespace Microsoft.Extensions.Hosting
                        .AddMeter("Reviews.Cache")
                        .AddMeter("Grpc.Net.Client")
                        .AddMeter("Polly")
+                       .AddMeter("Platform.EventBus")
                        // межі кошиків для всіх гістограм тривалості (*.operation.duration), мс
                        .AddView("*.operation.duration", new ExplicitBucketHistogramConfiguration
                        {

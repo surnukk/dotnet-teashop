@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Platform.EventBus.Abstractions;
 using Platform.EventBus.Consuming;
 using Platform.EventBus.Events;
+using Platform.EventBus.Monitoring;
 using Platform.EventBus.Publishing;
 using Platform.EventBus.Topology;
 
@@ -34,6 +35,16 @@ public static class EventBusServiceCollectionExtensions
             typeof(TEvent),
             (sp, e, ct) => sp.GetRequiredService<THandler>().HandleAsync((TEvent)e, ct)));
         services.TryAddSingleton<EventHandlerRegistry>();
+        services.TryAddSingleton<EventBusMetrics>();
+        return services;
+    }
+
+    /// <summary>Моніторинг глибини DLQ для вказаних основних черг (gauge eventbus.dlq.depth).</summary>
+    public static IServiceCollection AddDlqDepthMonitor(this IServiceCollection services, params string[] queues)
+    {
+        services.TryAddSingleton<EventBusMetrics>();
+        services.AddSingleton(new DlqMonitorTargets(queues.Select(EventBusTopology.DlqName).ToArray()));
+        services.AddHostedService<DlqDepthMonitor>();
         return services;
     }
 }

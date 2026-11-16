@@ -1,5 +1,6 @@
 ﻿using Orders.Bll.Caching;
 using Orders.Dal.Interfaces;
+using Platform.EventBus.Consuming;
 using Platform.EventBus.Events;
 
 namespace Orders.Api.IntegrationEvents;
@@ -11,6 +12,9 @@ public sealed class ProductRenamedHandler(IUnitOfWork uow, ICacheService cache, 
 
     protected override async Task<bool> ApplyAsync(ProductRenamedEvent e, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(e.NewName))
+            throw new PermanentFailureException($"Empty name for product {e.ProductId}");
+
         var applied = await Uow.Products.UpdateNameSnapshotAsync(e.ProductId, e.NewName, e.OccurredAt, ct);
 
         if (!applied)
