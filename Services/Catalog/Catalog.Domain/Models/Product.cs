@@ -56,4 +56,11 @@ public class Product
             throw new DomainException("Quantity must be positive");
         StockQuantity += quantity;
     }
+
+    public void Rename(string productName)
+    {
+        if (string.IsNullOrWhiteSpace(productName))
+            throw new DomainException("Product name must not be empty");
+        ProductName = productName.Trim();
+    }
 }

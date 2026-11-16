@@ -14,6 +14,7 @@ public interface IProductService
     Task<ProductDetailsDto> GetByIdAsync(int id, CancellationToken ct);
     Task<ProductDto> CreateAsync(CreateProductDto input, CancellationToken ct);
     Task<ProductDto> ChangePriceAsync(int id, ChangePriceDto input, CancellationToken ct);
+    Task<ProductDto> RenameAsync(int id, RenameProductDto input, CancellationToken ct);
     Task<ProductDto> AddStockAsync(int id, StockChangeDto input, CancellationToken ct);
     Task<ProductDto> RemoveStockAsync(int id, StockChangeDto input, CancellationToken ct);
     Task DeleteAsync(int id, CancellationToken ct);

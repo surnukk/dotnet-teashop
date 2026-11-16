@@ -31,3 +31,6 @@ public record ChangePriceDto(
 
 public record StockChangeDto(
     [Range(1, 100000)] int Quantity);
+
+public record RenameProductDto(
+    [Required, StringLength(200, MinimumLength = 1)] string ProductName);

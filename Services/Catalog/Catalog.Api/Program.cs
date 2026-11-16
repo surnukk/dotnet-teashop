@@ -19,6 +19,7 @@ builder.AddServiceDefaults();      // логування, трасування, health checks, serv
 
 builder.AddRabbitMQClient("messaging");        // реєструє IConnection (singleton) + телеметрію
 builder.Services.AddEventBusTopology();
+builder.Services.AddEventPublisher();
 
 builder.AddCatalogHealthChecks();
 

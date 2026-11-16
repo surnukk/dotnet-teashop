@@ -64,6 +64,20 @@ public class ProductsController(IProductService service, CatalogMetrics metrics)
         return Ok(product);
     }
 
+    /// <summary>Перейменувати товар (публікує ProductRenamedEvent).</summary>
+    [HttpPut("{id:int}/name")]
+    [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<ProductDto>> Rename(
+        int id, RenameProductDto input, CancellationToken ct)
+    {
+        var product = await metrics.MeasureAsync("rename", () => service.RenameAsync(id, input, ct));
+        metrics.ProductUpdated("name");
+        return Ok(product);
+    }
+
     /// <summary>Поповнити залишок.</summary>
     [HttpPost("{id:int}/stock/add")]
     [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]

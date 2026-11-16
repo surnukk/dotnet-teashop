@@ -12,10 +12,19 @@ using System.Threading.Tasks;
 using Catalog.Dal.Specifications;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
+using Platform.EventBus.Abstractions;
+using Platform.EventBus.Events;
+using Platform.EventBus.Topology;
 
 namespace Catalog.Bll.Services;
 
-public class ProductService(IUnitOfWork uow, IMapper mapper, ILogger<ProductService> logger, ICacheService cache) : IProductService
+public class ProductService(
+    IUnitOfWork uow,
+    IMapper mapper,
+    ILogger<ProductService> logger,
+    ICacheService cache,
+    IEventPublisher publisher,
+    ICorrelationIdAccessor correlation) : IProductService
 {
     private static readonly ActivitySource Source = new("Catalog.Api");
 
@@ -69,12 +78,17 @@ public class ProductService(IUnitOfWork uow, IMapper mapper, ILogger<ProductServ
 
         var product = new Product(input.CategoryId, input.ProductName, input.Price);
         await uow.Products.AddAsync(product, ct);
-        await uow.SaveChangesAsync(ct);
+        await uow.SaveChangesAsync(ct);                       // 1) зміни збережено (ProductId вже відомий)
 
         await cache.RemoveGroupAsync(CatalogCache.ListsGroup, "ProductCreated");
 
         logger.LogInformation("Product {ProductId} created in category {CategoryId}, price {Price}",
             product.ProductId, product.CategoryId, product.Price);
+
+        await publisher.PublishAsync(                         // 2) лише тоді — подія
+            new ProductCreatedEvent(product.ProductId, product.ProductName, product.Price)
+            { CorrelationId = correlation.Current },
+            EventBusTopology.CatalogExchange, EventBusTopology.ProductCreatedKey, ct);
 
         return mapper.Map<ProductDto>(product);
     }
@@ -86,12 +100,42 @@ public class ProductService(IUnitOfWork uow, IMapper mapper, ILogger<ProductServ
 
         var product = await GetOrThrowAsync(id, ct);
         var oldPrice = product.Price;
-        product.ChangePrice(input.Price);
-        await uow.SaveChangesAsync(ct);
-        await InvalidateProductAsync(id, "ProductPriceChanged");   // синхронно, одразу після запису
+        product.ChangePrice(input.Price);                
+        await uow.SaveChangesAsync(ct);                
+        await InvalidateProductAsync(id, "ProductPriceChanged");
 
         logger.LogInformation("Product {ProductId} price changed from {OldPrice} to {NewPrice}",
             id, oldPrice, product.Price);
+
+        await publisher.PublishAsync(                      
+            new ProductPriceChangedEvent(id, product.ProductName, oldPrice, product.Price)
+            { CorrelationId = correlation.Current },
+            EventBusTopology.CatalogExchange, EventBusTopology.ProductPriceChangedKey, ct);
+
+        return mapper.Map<ProductDto>(product);
+    }
+
+    public async Task<ProductDto> RenameAsync(int id, RenameProductDto input, CancellationToken ct)
+    {
+        var product = await GetOrThrowAsync(id, ct);
+        var oldName = product.ProductName;
+        var newName = input.ProductName.Trim();
+
+        if (!string.Equals(oldName, newName, StringComparison.OrdinalIgnoreCase)
+            && await uow.Products.ExistsByNameAsync(newName, ct))
+            throw new ConflictException($"Product '{newName}' already exists");
+
+        product.Rename(newName);
+        await uow.SaveChangesAsync(ct);                       // 1) зміни збережено
+        await InvalidateProductAsync(id, "ProductRenamed");
+
+        logger.LogInformation("Product {ProductId} renamed from {OldName} to {NewName}",
+            id, oldName, product.ProductName);
+
+        await publisher.PublishAsync(                         // 2) лише тоді — подія
+            new ProductRenamedEvent(id, oldName, product.ProductName)
+            { CorrelationId = correlation.Current },
+            EventBusTopology.CatalogExchange, EventBusTopology.ProductRenamedKey, ct);
 
         return mapper.Map<ProductDto>(product);
     }
@@ -125,10 +169,15 @@ public class ProductService(IUnitOfWork uow, IMapper mapper, ILogger<ProductServ
     public async Task DeleteAsync(int id, CancellationToken ct)
     {
         var product = await GetOrThrowAsync(id, ct);
+        var name = product.ProductName;
         uow.Products.Delete(product);
         await uow.SaveChangesAsync(ct);
         await InvalidateProductAsync(id, "ProductDeleted");
         logger.LogInformation("Product {ProductId} deleted", id);
+
+        await publisher.PublishAsync(
+            new ProductDeletedEvent(id, name) { CorrelationId = correlation.Current },
+            EventBusTopology.CatalogExchange, EventBusTopology.ProductDeletedKey, ct);
     }
 
     private async Task<Product> GetOrThrowAsync(int id, CancellationToken ct)

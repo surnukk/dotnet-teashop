@@ -17,6 +17,8 @@ public static class EventBusTopology
     // Routing keys подій Каталогу
     public const string ProductPriceChangedKey = "product.price_changed";
     public const string ProductRenamedKey = "product.renamed";
+    public const string ProductCreatedKey = "product.created"; 
+    public const string ProductDeletedKey = "product.deleted";
     public const string ProductBindingKey = "product.*";
 
     public static string DlqName(string queue) => $"{queue}.dlq";
