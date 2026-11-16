@@ -24,6 +24,7 @@ public sealed class UnitOfWork : IUnitOfWork
         Products = new ProductRepository(_connection, () => _transaction);
         Promotions = new PromotionRepository(_connection, () => _transaction);
         Payments = new PaymentRepository(_connection, () => _transaction);
+        ProcessedEvents = new ProcessedEventRepository(_connection, () => _transaction);
     }
 
     public ICustomerRepository Customers { get; }
@@ -31,6 +32,7 @@ public sealed class UnitOfWork : IUnitOfWork
     public IProductRepository Products { get; }
     public IPromotionRepository Promotions { get; }
     public IPaymentRepository Payments { get; }
+    public IProcessedEventRepository ProcessedEvents { get; }
 
     public async Task BeginTransactionAsync(
         IsolationLevel level = IsolationLevel.ReadCommitted,

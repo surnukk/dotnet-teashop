@@ -1,5 +1,8 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Platform.EventBus.Abstractions;
+using Platform.EventBus.Consuming;
+using Platform.EventBus.Events;
 using Platform.EventBus.Publishing;
 using Platform.EventBus.Topology;
 
@@ -18,6 +21,19 @@ public static class EventBusServiceCollectionExtensions
         services.AddHttpContextAccessor();
         services.AddSingleton<ICorrelationIdAccessor, HttpContextCorrelationIdAccessor>();
         services.AddSingleton<IEventPublisher, RabbitMqEventPublisher>();
+        return services;
+    }
+
+    /// <summary>Реєструє обробник (scoped) і прив'язує його до типу події.</summary>
+    public static IServiceCollection AddEventHandler<TEvent, THandler>(this IServiceCollection services)
+        where TEvent : IntegrationEvent
+        where THandler : class, IIntegrationEventHandler<TEvent>
+    {
+        services.AddScoped<THandler>();
+        services.AddSingleton(new EventHandlerRegistration(
+            typeof(TEvent),
+            (sp, e, ct) => sp.GetRequiredService<THandler>().HandleAsync((TEvent)e, ct)));
+        services.TryAddSingleton<EventHandlerRegistry>();
         return services;
     }
 }

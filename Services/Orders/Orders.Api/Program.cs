@@ -10,6 +10,9 @@ using Orders.Dal.Interfaces;
 using Orders.Api.GrpcServices;
 using Orders.Api.Metrics;
 using Platform.EventBus;
+using Orders.Api.IntegrationEvents;
+using Orders.Dal.Migrations;
+using Platform.EventBus.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +20,12 @@ builder.AddServiceDefaults();
 
 builder.AddRabbitMQClient("messaging");      
 builder.Services.AddEventBusTopology();
+
+builder.Services.AddEventHandler<ProductCreatedEvent, ProductCreatedHandler>();
+builder.Services.AddEventHandler<ProductPriceChangedEvent, ProductPriceChangedHandler>();
+builder.Services.AddEventHandler<ProductRenamedEvent, ProductRenamedHandler>();
+builder.Services.AddEventHandler<ProductDeletedEvent, ProductDeletedHandler>();
+builder.Services.AddHostedService<CatalogEventsConsumer>();
 
 builder.AddOrdersHealthChecks();
 
@@ -73,6 +82,8 @@ builder.Services.AddExceptionHandler<Orders.Api.Infrastructure.DomainExceptionHa
 
 
 var app = builder.Build();
+
+await DbMigrator.ApplyAsync(connectionString);
 
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.MapDefaultEndpoints();         // /health і /alive (лише в Development)

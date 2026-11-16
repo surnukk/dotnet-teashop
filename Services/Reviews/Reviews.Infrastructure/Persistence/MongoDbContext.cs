@@ -31,4 +31,10 @@ public class MongoDbContext
     public IMongoDatabase Database { get; }
 
     public IMongoCollection<Review> Reviews => Database.GetCollection<Review>("reviews");
+
+    public IMongoCollection<ProcessedEventDocument> ProcessedEvents
+    => Database.GetCollection<ProcessedEventDocument>("processedEvents");
+
+    public IMongoCollection<ProductNameSnapshot> ProductNames
+        => Database.GetCollection<ProductNameSnapshot>("productNames");
 }
