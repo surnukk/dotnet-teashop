@@ -12,6 +12,7 @@ var useContainers = !string.Equals(
 IResourceBuilder<IResourceWithConnectionString> ordersDb;
 IResourceBuilder<IResourceWithConnectionString> catalogDb;
 IResourceBuilder<IResourceWithConnectionString> reviewsDb;
+IResourceBuilder<IResourceWithConnectionString> identityDb;
 IResourceBuilder<IResourceWithConnectionString> redis;
 IResourceBuilder<IResourceWithConnectionString> rabbit;
 
@@ -23,7 +24,8 @@ if (useContainers)
     var sql = builder.AddSqlServer("sql", sqlPassword)
                      .WithDataVolume();
     ordersDb = sql.AddDatabase("OrdersDb", "EastLeaf_OrderDB");
-    catalogDb = sql.AddDatabase("CatalogDb"); 
+    catalogDb = sql.AddDatabase("CatalogDb");
+    identityDb = sql.AddDatabase("IdentityDb");
 
     var mongo = builder.AddMongoDB("mongo")
                        .WithDataVolume();
@@ -45,6 +47,7 @@ else
     reviewsDb = builder.AddConnectionString("ReviewsDb");
     redis = builder.AddConnectionString("redis");
     rabbit = builder.AddConnectionString("messaging");
+    identityDb = builder.AddConnectionString("IdentityDb");
 }
 
 IResourceBuilder<ProjectResource> WithDb(
@@ -74,6 +77,7 @@ IResourceBuilder<ProjectResource> WithRabbit(IResourceBuilder<ProjectResource> p
 var orders = WithRabbit(WithRedis(WithDb(builder.AddProject<Projects.Orders_Api>("orders-api", launchProfileName: "https"), ordersDb))).WithHttpHealthCheck("/health", endpointName: "http");
 var catalog = WithRabbit(WithRedis(WithDb(builder.AddProject<Projects.Catalog_Api>("catalog-api", launchProfileName: "https"), catalogDb))).WithHttpHealthCheck("/health", endpointName: "http");
 var reviews = WithRabbit(WithRedis(WithDb(builder.AddProject<Projects.Reviews_WebApi>("reviews-api", launchProfileName: "https"), reviewsDb))).WithHttpHealthCheck("/health", endpointName: "http");
+var auth = WithDb(builder.AddProject<Projects.Auth_Api>("auth-api", launchProfileName: "https"), identityDb).WithHttpHealthCheck("/health", endpointName: "http");
 
 // ---------- 2.3 Aggregator та Gateway ----------
 var aggregator = WithRedis(builder.AddProject<Projects.Platform_Aggregator>("aggregator")
