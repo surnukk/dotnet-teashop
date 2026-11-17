@@ -1,11 +1,13 @@
 ﻿using Catalog.Bll.DTO;
 using Catalog.Bll.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Catalog.Api.Controllers;
 
 [ApiController]
 [Route("api/tags")]
+[Authorize]
 public class TagsController(ITagService service) : ControllerBase
 {
     [HttpGet("{tagName}/products")]
@@ -30,6 +32,7 @@ public class TagsController(ITagService service) : ControllerBase
 
     /// <summary>Створити тег. Назва має бути унікальною.</summary>
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(TagDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]

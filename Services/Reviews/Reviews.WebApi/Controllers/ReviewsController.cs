@@ -11,9 +11,12 @@ using Reviews.Application.Queries.GetReviewById;
 using Reviews.Application.Queries.GetReviewsList;
 using Reviews.WebApi.Contracts;
 using Reviews.WebApi.Metrics;
+using Microsoft.AspNetCore.Authorization;
+using Platform.ServiceDefaults.Security;
 
 namespace Reviews.WebApi.Controllers;
 
+[Authorize]
 [Route("api/reviews")]
 public class ReviewsController(ISender mediator, IMapper mapper, ReviewMetrics metrics) : ApiControllerBase(mediator)
 {
@@ -48,6 +51,7 @@ public class ReviewsController(ISender mediator, IMapper mapper, ReviewMetrics m
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<string>> Create(CreateReviewRequest request, CancellationToken ct)
     {
+        request = request with { AuthorId = User.GetUserId()!, AuthorName = User.GetUserName()! };
         var id = await metrics.MeasureAsync("create", () => Mediator.Send(mapper.Map<CreateReviewCommand>(request), ct));
         metrics.ReviewCreated(request.Rating);
         return CreatedAtAction(nameof(GetById), new { id }, id);
@@ -78,6 +82,7 @@ public class ReviewsController(ISender mediator, IMapper mapper, ReviewMetrics m
 
     /// <summary>Видалити відгук.</summary>
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -96,6 +101,7 @@ public class ReviewsController(ISender mediator, IMapper mapper, ReviewMetrics m
     public async Task<ActionResult<string>> AddComment(
         string id, AddCommentRequest request, CancellationToken ct)
     {
+        request = request with { AuthorId = User.GetUserId()!, AuthorName = User.GetUserName()! };
         var commentId = await metrics.MeasureAsync("add_comment",
             () => Mediator.Send(new AddCommentCommand(id, request.AuthorId, request.AuthorName, request.Text), ct));
         metrics.CommentAdded();
@@ -104,6 +110,7 @@ public class ReviewsController(ISender mediator, IMapper mapper, ReviewMetrics m
 
     /// <summary>Видалити один коментар.</summary>
     [HttpDelete("{id}/comments/{commentId}")]
+    [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

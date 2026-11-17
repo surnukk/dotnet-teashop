@@ -1,10 +1,12 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Orders.Bll.DTO;
 using Orders.Bll.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Orders.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/payments")]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
@@ -31,6 +33,7 @@ public class PaymentsController(IPaymentService paymentService) : ControllerBase
     }
 
     [HttpPost("order/{orderId:long}/refund")]
+    [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Refund(long orderId, CancellationToken ct)
     {

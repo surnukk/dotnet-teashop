@@ -9,10 +9,38 @@ using Platform.Aggregator.Services;
 using Reviews.Contracts;
 using System.Text.Json.Serialization;
 using Platform.Aggregator.HealthChecks;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+
+var jwt = builder.Configuration.GetSection("Jwt");
+var jwtSecret = jwt["SecretKey"] ?? throw new InvalidOperationException("Jwt:SecretKey is missing");
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwt["Issuer"],
+            ValidateAudience = true,
+            ValidAudience = jwt["Audience"],
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero,
+            NameClaimType = "unique_name",
+            RoleClaimType = "role"
+        };
+    });
+builder.Services.AddAuthorization();
+
 builder.AddAggregatorHealthChecks();
 
 builder.AddRedisDistributedCache("redis", settings => settings.DisableHealthChecks = true);
@@ -45,6 +73,9 @@ var app = builder.Build();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.MapDefaultEndpoints();
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -74,7 +105,7 @@ app.MapGet("/api/aggregator/orders/{id:long}/full",
             return Results.Problem(statusCode: 503, title: "orders-api is unavailable", detail: ex.Message);
         }
     })
-    .WithTags("Aggregator");
+    .WithTags("Aggregator").RequireAuthorization();
 
 app.MapDelete("/api/aggregator/orders/{id:long}/cache",
     async (long id, AggregateCache cache, CancellationToken ct) =>
@@ -82,6 +113,6 @@ app.MapDelete("/api/aggregator/orders/{id:long}/cache",
         await cache.RemoveAsync(AggregateCache.FullOrderKey(id), ct);
         return Results.NoContent();
     })
-    .WithTags("Aggregator");
+    .WithTags("Aggregator").RequireAuthorization(p => p.RequireRole("Admin"));
 
 app.Run();

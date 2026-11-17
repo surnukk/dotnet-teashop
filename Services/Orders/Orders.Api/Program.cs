@@ -14,10 +14,37 @@ using Orders.Dal.Migrations;
 using Platform.EventBus;
 using Platform.EventBus.Events;
 using Platform.EventBus.Topology;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+
+var jwt = builder.Configuration.GetSection("Jwt");
+var jwtSecret = jwt["SecretKey"] ?? throw new InvalidOperationException("Jwt:SecretKey is missing");
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwt["Issuer"],
+            ValidateAudience = true,
+            ValidAudience = jwt["Audience"],
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero,
+            NameClaimType = "unique_name",
+            RoleClaimType = "role"
+        };
+    });
+builder.Services.AddAuthorization();
 
 builder.AddRabbitMQClient("messaging");      
 builder.Services.AddEventBusTopology();
@@ -104,6 +131,9 @@ if (app.Environment.IsDevelopment())
 
 app.Logger.LogInformation("Database: {Database}",
     new SqlConnectionStringBuilder(connectionString).InitialCatalog);
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 app.MapGrpcService<OrdersGrpcService>();

@@ -1,10 +1,12 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Orders.Bll.DTO;
 using Orders.Bll.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Orders.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/customers")]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
@@ -34,6 +36,7 @@ public class CustomersController(ICustomerService customerService) : ControllerB
     }
 
     [HttpGet]
+    [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(IEnumerable<CustomerDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<CustomerDto>>> GetAll(CancellationToken ct)
     {
@@ -58,6 +61,7 @@ public class CustomersController(ICustomerService customerService) : ControllerB
     }
 
     [HttpDelete("{id:long}")]
+    [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Delete(long id, CancellationToken ct)
     {

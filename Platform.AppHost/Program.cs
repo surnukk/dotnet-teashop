@@ -73,6 +73,16 @@ IResourceBuilder<ProjectResource> WithRabbit(IResourceBuilder<ProjectResource> p
     return project;
 }
 
+var jwtSecret = builder.AddParameter("jwt-secret", secret: true);
+const string jwtIssuer = "https://auth.teashop.local";
+const string jwtAudience = "teashop-api";
+
+IResourceBuilder<ProjectResource> WithJwt(IResourceBuilder<ProjectResource> project)
+    => project
+        .WithEnvironment("Jwt__Issuer", jwtIssuer)
+        .WithEnvironment("Jwt__Audience", jwtAudience)
+        .WithEnvironment("Jwt__SecretKey", jwtSecret);
+
 // ---------- 2.2 Мікросервіси ----------
 var orders = WithRabbit(WithRedis(WithDb(builder.AddProject<Projects.Orders_Api>("orders-api", launchProfileName: "https"), ordersDb))).WithHttpHealthCheck("/health", endpointName: "http");
 var catalog = WithRabbit(WithRedis(WithDb(builder.AddProject<Projects.Catalog_Api>("catalog-api", launchProfileName: "https"), catalogDb))).WithHttpHealthCheck("/health", endpointName: "http");
@@ -84,10 +94,13 @@ var aggregator = WithRedis(builder.AddProject<Projects.Platform_Aggregator>("agg
     .WithReference(orders).WithReference(catalog).WithReference(reviews)
     .WaitFor(orders).WaitFor(catalog).WaitFor(reviews));
 
-builder.AddProject<Projects.Platform_ApiGateway>("gateway")
+var gateway = builder.AddProject<Projects.Platform_ApiGateway>("gateway")
     .WithHttpEndpoint(port: 5000, name: "public")
     .WithReference(orders).WithReference(catalog).WithReference(reviews)
     .WithReference(aggregator)
-    .WaitFor(aggregator);
+    .WithReference(auth)
+    .WaitFor(aggregator).WaitFor(auth);
+
+WithJwt(auth); WithJwt(orders); WithJwt(catalog); WithJwt(reviews); WithJwt(aggregator); WithJwt(gateway);
 
 builder.Build().Run();

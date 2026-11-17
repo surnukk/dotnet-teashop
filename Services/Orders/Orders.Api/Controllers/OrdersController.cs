@@ -1,17 +1,34 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Orders.Api.Metrics;
 using Orders.Bll.DTO;
 using Orders.Bll.Services;
+using Platform.ServiceDefaults.Security;
 
 namespace Orders.Api.Controllers;
 
 [ApiController]
 [Route("api/orders")]
+[Authorize]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
-public class OrdersController(IOrderService orderService, OrderMetrics metrics) : ControllerBase
+public class OrdersController(
+    IOrderService orderService,
+    ICustomerService customerService,
+    OrderMetrics metrics) : ControllerBase
 {
+    private async Task<bool> OwnsCustomerAsync(long customerId, CancellationToken ct)
+    {
+        if (User.IsAdmin()) return true;
+
+        var email = User.GetEmail();
+        if (string.IsNullOrEmpty(email)) return false;
+
+        var me = await customerService.GetByEmailAsync(email, ct);
+        return me is not null && me.CustomerID == customerId;
+    }
+
     [HttpGet("{id:long}")]
     [ProducesResponseType(typeof(OrderDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<OrderDto>> GetById(long id, CancellationToken ct)
@@ -20,11 +37,15 @@ public class OrdersController(IOrderService orderService, OrderMetrics metrics) 
         if (order == null)
             return NotFound();
 
+        if (!await OwnsCustomerAsync(order.CustomerID, ct))
+            return Forbid();
+
         return Ok(order);
     }
 
     [HttpPost("{id:long}/ship")]
-    [ProducesResponseType(typeof(IEnumerable<OrderDto>), StatusCodes.Status200OK)]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Ship(long id, CancellationToken ct)
     {
         await metrics.MeasureCommandAsync("ship", () => orderService.ShipOrderAsync(id, ct));
@@ -33,17 +54,23 @@ public class OrdersController(IOrderService orderService, OrderMetrics metrics) 
     }
 
     [HttpGet("customer/{customerId:long}")]
-    [ProducesResponseType(typeof(long), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(IEnumerable<OrderDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<OrderDto>>> GetByCustomer(long customerId, CancellationToken ct)
     {
+        if (!await OwnsCustomerAsync(customerId, ct))
+            return Forbid();
+
         var orders = await metrics.MeasureAsync("get_by_customer", () => orderService.GetByCustomerIdAsync(customerId, ct));
         return Ok(orders);
     }
 
     [HttpPost]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(long), StatusCodes.Status201Created)]
     public async Task<ActionResult<long>> Create([FromBody] CreateOrderRequest request, CancellationToken ct)
     {
+        if (!await OwnsCustomerAsync(request.CustomerId, ct))
+            return Forbid();
+
         var orderId = await metrics.MeasureAsync("create", () => orderService.CreateOrderAsync(request, ct));
         metrics.OrderCreated("Submitted", request.PromotionId is not null);
         return CreatedAtAction(nameof(GetById), new { id = orderId }, orderId);
@@ -53,6 +80,10 @@ public class OrdersController(IOrderService orderService, OrderMetrics metrics) 
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Confirm(long id, CancellationToken ct)
     {
+        var order = await orderService.GetByIdAsync(id, ct);
+        if (order == null) return NotFound();
+        if (!await OwnsCustomerAsync(order.CustomerID, ct)) return Forbid();
+
         await metrics.MeasureCommandAsync("confirm", () => orderService.ConfirmOrderAsync(id, ct));
         metrics.OrderConfirmed();
         return NoContent();
@@ -62,6 +93,10 @@ public class OrdersController(IOrderService orderService, OrderMetrics metrics) 
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Cancel(long id, CancellationToken ct)
     {
+        var order = await orderService.GetByIdAsync(id, ct);
+        if (order == null) return NotFound();
+        if (!await OwnsCustomerAsync(order.CustomerID, ct)) return Forbid();
+
         await metrics.MeasureCommandAsync("cancel", () => orderService.CancelOrderAsync(id, ct));
         metrics.OrderCancelled();
         return NoContent();

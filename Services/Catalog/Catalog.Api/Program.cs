@@ -12,10 +12,37 @@ using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Catalog.Api.Metrics;
 using Platform.EventBus;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();      // логування, трасування, health checks, service discovery
+
+var jwt = builder.Configuration.GetSection("Jwt");
+var jwtSecret = jwt["SecretKey"] ?? throw new InvalidOperationException("Jwt:SecretKey is missing");
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwt["Issuer"],
+            ValidateAudience = true,
+            ValidAudience = jwt["Audience"],
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero,
+            NameClaimType = "unique_name",
+            RoleClaimType = "role"
+        };
+    });
+builder.Services.AddAuthorization();
 
 builder.AddRabbitMQClient("messaging");        // реєструє IConnection (singleton) + телеметрію
 builder.Services.AddEventBusTopology();
@@ -104,6 +131,7 @@ if (app.Environment.IsDevelopment())
 
 //app.UseHttpsRedirection();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

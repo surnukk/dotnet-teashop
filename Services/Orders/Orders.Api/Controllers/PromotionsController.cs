@@ -1,10 +1,12 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Orders.Bll.DTO;
 using Orders.Bll.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Orders.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/promotions")]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
@@ -42,6 +44,7 @@ public class PromotionsController(IPromotionService promotionService) : Controll
     }
 
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(long), StatusCodes.Status201Created)]
     public async Task<ActionResult<long>> Create(UpsertPromotionRequest request, CancellationToken ct)
     {
@@ -50,6 +53,7 @@ public class PromotionsController(IPromotionService promotionService) : Controll
     }
 
     [HttpPut("{id:long}")]
+    [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Update(long id, UpsertPromotionRequest request, CancellationToken ct)
     {
@@ -58,6 +62,7 @@ public class PromotionsController(IPromotionService promotionService) : Controll
     }
 
     [HttpDelete("{id:long}")]
+    [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Delete(long id, CancellationToken ct)
     {

@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Orders.Bll.DTO;
 using Orders.Bll.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Orders.Api.Controllers;
 

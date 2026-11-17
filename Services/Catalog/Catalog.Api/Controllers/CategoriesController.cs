@@ -1,11 +1,13 @@
 ﻿using Catalog.Bll.DTO;
 using Catalog.Bll.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Catalog.Api.Controllers;
 
 [ApiController]
 [Route("api/categories")]
+[Authorize]
 public class CategoriesController(ICategoryService service) : ControllerBase
 {
     /// <summary>Список категорій.</summary>
@@ -23,6 +25,7 @@ public class CategoriesController(ICategoryService service) : ControllerBase
 
     /// <summary>Створити категорію. Назва має бути унікальною.</summary>
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(CategoryDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -34,6 +37,7 @@ public class CategoriesController(ICategoryService service) : ControllerBase
 
     /// <summary>Змінити назву й опис категорії.</summary>
     [HttpPut("{id:int}")]
+    [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(CategoryDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

@@ -1,13 +1,14 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
+using Auth.Api.Common;                         
 using Auth.Api.Data;
 using Auth.Api.Options;
+using Auth.Api.Services;                       
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using Auth.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,7 +44,10 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 
 builder.Services.Configure<DataProtectionTokenProviderOptions>(o =>
     o.TokenLifespan = TimeSpan.FromHours(1));
+
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<IAuthService, AuthService>();       
+builder.Services.AddSingleton<IEmailService, LoggingEmailService>();    
 
 builder.Services
     .AddAuthentication(options =>
@@ -70,6 +74,9 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
+
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<AuthExceptionHandler>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -100,11 +107,13 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseExceptionHandler();                 
 
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     await db.Database.MigrateAsync();
+    await IdentitySeeder.SeedAsync(scope.ServiceProvider, app.Configuration); 
 }
 
 if (app.Environment.IsDevelopment())
