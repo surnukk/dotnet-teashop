@@ -51,6 +51,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Auth", "Auth", "{FE3FB199-5
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Auth.Api", "Services\Auth\Auth.Api\Auth.Api.csproj", "{0659B620-54A8-4503-8672-AAB3CD14A6EC}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Platform.IdentityServer", "Platform.IdentityServer\Platform.IdentityServer.csproj", "{F166E9A7-AC02-43CD-B2A2-754BBEC08A05}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -289,6 +291,18 @@ Global
 		{0659B620-54A8-4503-8672-AAB3CD14A6EC}.Release|x64.Build.0 = Release|Any CPU
 		{0659B620-54A8-4503-8672-AAB3CD14A6EC}.Release|x86.ActiveCfg = Release|Any CPU
 		{0659B620-54A8-4503-8672-AAB3CD14A6EC}.Release|x86.Build.0 = Release|Any CPU
+		{F166E9A7-AC02-43CD-B2A2-754BBEC08A05}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F166E9A7-AC02-43CD-B2A2-754BBEC08A05}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F166E9A7-AC02-43CD-B2A2-754BBEC08A05}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F166E9A7-AC02-43CD-B2A2-754BBEC08A05}.Debug|x64.Build.0 = Debug|Any CPU
+		{F166E9A7-AC02-43CD-B2A2-754BBEC08A05}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{F166E9A7-AC02-43CD-B2A2-754BBEC08A05}.Debug|x86.Build.0 = Debug|Any CPU
+		{F166E9A7-AC02-43CD-B2A2-754BBEC08A05}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F166E9A7-AC02-43CD-B2A2-754BBEC08A05}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F166E9A7-AC02-43CD-B2A2-754BBEC08A05}.Release|x64.ActiveCfg = Release|Any CPU
+		{F166E9A7-AC02-43CD-B2A2-754BBEC08A05}.Release|x64.Build.0 = Release|Any CPU
+		{F166E9A7-AC02-43CD-B2A2-754BBEC08A05}.Release|x86.ActiveCfg = Release|Any CPU
+		{F166E9A7-AC02-43CD-B2A2-754BBEC08A05}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

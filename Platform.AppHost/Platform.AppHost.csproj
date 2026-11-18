@@ -25,6 +25,7 @@
     <ProjectReference Include="..\Services\Orders\Orders.Api\Orders.Api.csproj" />
     <ProjectReference Include="..\Services\Reviews\Reviews.WebApi\Reviews.WebApi.csproj" />
 	<ProjectReference Include="..\Services\Auth\Auth.Api\Auth.Api.csproj" />
+	<ProjectReference Include="..\Platform.IdentityServer\Platform.IdentityServer.csproj" />
   </ItemGroup>
 
 </Project>
