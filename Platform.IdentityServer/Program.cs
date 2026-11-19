@@ -30,8 +30,10 @@ builder.Services.AddIdentityServer(options =>
     options.Events.RaiseInformationEvents = true;
     options.Events.RaiseFailureEvents = true;
     options.Events.RaiseSuccessEvents = true;
+    options.KeyManagement.Enabled = false;
 
     options.Authentication.CookieSameSiteMode = SameSiteMode.Lax;
+    options.Authentication.CheckSessionCookieSameSiteMode = SameSiteMode.Lax;  
 })
 .AddAspNetIdentity<ApplicationUser>()
 .AddConfigurationStore(options =>
@@ -43,7 +45,10 @@ builder.Services.AddIdentityServer(options =>
         sql => sql.MigrationsAssembly(migrationsAssembly));
     options.EnableTokenCleanup = true;
     options.TokenCleanupInterval = 3600;
-});
+}).AddDeveloperSigningCredential();
+
+builder.Services.ConfigureApplicationCookie(options => options.Cookie.SameSite = SameSiteMode.Lax);
+builder.Services.ConfigureExternalCookie(options => options.Cookie.SameSite = SameSiteMode.Lax);
 
 var app = builder.Build();
 

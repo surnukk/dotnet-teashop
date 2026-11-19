@@ -7,7 +7,7 @@ namespace Catalog.Api.Controllers;
 
 [ApiController]
 [Route("api/categories")]
-[Authorize]
+[Authorize(Policy = "products.read")]
 public class CategoriesController(ICategoryService service) : ControllerBase
 {
     /// <summary>Список категорій.</summary>
@@ -25,7 +25,7 @@ public class CategoriesController(ICategoryService service) : ControllerBase
 
     /// <summary>Створити категорію. Назва має бути унікальною.</summary>
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "products.write")]
     [ProducesResponseType(typeof(CategoryDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -37,7 +37,7 @@ public class CategoriesController(ICategoryService service) : ControllerBase
 
     /// <summary>Змінити назву й опис категорії.</summary>
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "products.write")]
     [ProducesResponseType(typeof(CategoryDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

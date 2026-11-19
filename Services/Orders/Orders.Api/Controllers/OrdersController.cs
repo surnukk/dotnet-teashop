@@ -9,7 +9,7 @@ namespace Orders.Api.Controllers;
 
 [ApiController]
 [Route("api/orders")]
-[Authorize]
+[Authorize(Policy = "orders.read")]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
@@ -30,6 +30,7 @@ public class OrdersController(
     }
 
     [HttpGet("{id:long}")]
+    [Authorize(Policy = "orders.read")]
     [ProducesResponseType(typeof(OrderDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<OrderDto>> GetById(long id, CancellationToken ct)
     {
@@ -44,7 +45,7 @@ public class OrdersController(
     }
 
     [HttpPost("{id:long}/ship")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "orders.manage")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Ship(long id, CancellationToken ct)
     {
@@ -54,6 +55,7 @@ public class OrdersController(
     }
 
     [HttpGet("customer/{customerId:long}")]
+    [Authorize(Policy = "orders.read")]
     [ProducesResponseType(typeof(IEnumerable<OrderDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<OrderDto>>> GetByCustomer(long customerId, CancellationToken ct)
     {
@@ -65,6 +67,7 @@ public class OrdersController(
     }
 
     [HttpPost]
+    [Authorize(Policy = "orders.write")]
     [ProducesResponseType(typeof(long), StatusCodes.Status201Created)]
     public async Task<ActionResult<long>> Create([FromBody] CreateOrderRequest request, CancellationToken ct)
     {
@@ -77,6 +80,7 @@ public class OrdersController(
     }
 
     [HttpPost("{id:long}/confirm")]
+    [Authorize(Policy = "orders.write")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Confirm(long id, CancellationToken ct)
     {
@@ -90,6 +94,7 @@ public class OrdersController(
     }
 
     [HttpPost("{id:long}/cancel")]
+    [Authorize(Policy = "orders.write")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Cancel(long id, CancellationToken ct)
     {

@@ -3,10 +3,12 @@ using Catalog.Bll.Services;
 using Catalog.Contracts;
 using Catalog.Domain;
 using Grpc.Core;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Catalog.Api.GrpcServices;
 
 /// <summary>gRPC-адаптер над BLL Каталогу (ті самі сервіси, що використовують REST-контролери).</summary>
+[Authorize(Policy = "products.read")]
 public class CatalogGrpcService(IProductService products, ILogger<CatalogGrpcService> logger)
     : CatalogService.CatalogServiceBase
 {

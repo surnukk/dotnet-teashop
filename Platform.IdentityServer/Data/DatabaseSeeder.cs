@@ -23,22 +23,21 @@ public static class DatabaseSeeder
 
     private static async Task SeedConfigurationAsync(ConfigurationDbContext db)
     {
-        foreach (var resource in Config.IdentityResources)
-            if (!await db.IdentityResources.AnyAsync(x => x.Name == resource.Name))
-                db.IdentityResources.Add(resource.ToEntity());
+        var identityNames = Config.IdentityResources.Select(x => x.Name).ToList();
+        var scopeNames = Config.ApiScopes.Select(x => x.Name).ToList();
+        var resourceNames = Config.ApiResources.Select(x => x.Name).ToList();
+        var clientIds = Config.Clients.Select(x => x.ClientId).ToList();
 
-        foreach (var scope in Config.ApiScopes)
-            if (!await db.ApiScopes.AnyAsync(x => x.Name == scope.Name))
-                db.ApiScopes.Add(scope.ToEntity());
+        db.IdentityResources.RemoveRange(await db.IdentityResources.Where(x => identityNames.Contains(x.Name)).ToListAsync());
+        db.ApiScopes.RemoveRange(await db.ApiScopes.Where(x => scopeNames.Contains(x.Name)).ToListAsync());
+        db.ApiResources.RemoveRange(await db.ApiResources.Where(x => resourceNames.Contains(x.Name)).ToListAsync());
+        db.Clients.RemoveRange(await db.Clients.Where(x => clientIds.Contains(x.ClientId)).ToListAsync());
+        await db.SaveChangesAsync();
 
-        foreach (var resource in Config.ApiResources)
-            if (!await db.ApiResources.AnyAsync(x => x.Name == resource.Name))
-                db.ApiResources.Add(resource.ToEntity());
-
-        foreach (var client in Config.Clients)
-            if (!await db.Clients.AnyAsync(x => x.ClientId == client.ClientId))
-                db.Clients.Add(client.ToEntity());
-
+        db.IdentityResources.AddRange(Config.IdentityResources.Select(x => x.ToEntity()));
+        db.ApiScopes.AddRange(Config.ApiScopes.Select(x => x.ToEntity()));
+        db.ApiResources.AddRange(Config.ApiResources.Select(x => x.ToEntity()));
+        db.Clients.AddRange(Config.Clients.Select(x => x.ToEntity()));
         await db.SaveChangesAsync();
     }
 

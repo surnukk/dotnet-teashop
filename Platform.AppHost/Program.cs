@@ -89,12 +89,19 @@ IResourceBuilder<ProjectResource> WithJwt(IResourceBuilder<ProjectResource> proj
         .WithEnvironment("Jwt__Audience", jwtAudience)
         .WithEnvironment("Jwt__SecretKey", jwtSecret);
 
+// ---------- Authority IdentityServer для сервісів ----------
+const string identityServerUrl = "http://localhost:5200";
+
+IResourceBuilder<ProjectResource> WithIdentityServer(IResourceBuilder<ProjectResource> project)
+    => project.WithEnvironment("IdentityServer__Authority", identityServerUrl);
+
 // ---------- 2.2 Мікросервіси ----------
 var orders = WithRabbit(WithRedis(WithDb(builder.AddProject<Projects.Orders_Api>("orders-api", launchProfileName: "https"), ordersDb))).WithHttpHealthCheck("/health", endpointName: "http");
 var catalog = WithRabbit(WithRedis(WithDb(builder.AddProject<Projects.Catalog_Api>("catalog-api", launchProfileName: "https"), catalogDb))).WithHttpHealthCheck("/health", endpointName: "http");
 var reviews = WithRabbit(WithRedis(WithDb(builder.AddProject<Projects.Reviews_WebApi>("reviews-api", launchProfileName: "https"), reviewsDb))).WithHttpHealthCheck("/health", endpointName: "http");
 var auth = WithDb(builder.AddProject<Projects.Auth_Api>("auth-api", launchProfileName: "https"), identityDb).WithHttpHealthCheck("/health", endpointName: "http");
-var identityServer = WithDb(builder.AddProject<Projects.Platform_IdentityServer>("identityserver"), identityServerDb).WithHttpEndpoint(port: 5200, name: "public");
+var identityServer = WithDb(builder.AddProject<Projects.Platform_IdentityServer>("identityserver"), identityServerDb).WithHttpEndpoint(port: 5200, name: "public").WithHttpHealthCheck("/health", endpointName: "public");
+var payments = builder.AddProject<Projects.Payments_Api>("payments-api", launchProfileName: "https").WithHttpHealthCheck("/health", endpointName: "http");
 
 // ---------- 2.3 Aggregator та Gateway ----------
 var aggregator = WithRedis(builder.AddProject<Projects.Platform_Aggregator>("aggregator")
@@ -106,8 +113,23 @@ var gateway = builder.AddProject<Projects.Platform_ApiGateway>("gateway")
     .WithReference(orders).WithReference(catalog).WithReference(reviews)
     .WithReference(aggregator)
     .WithReference(auth)
+    .WithReference(payments)
     .WaitFor(aggregator).WaitFor(auth);
 
 WithJwt(auth); WithJwt(orders); WithJwt(catalog); WithJwt(reviews); WithJwt(aggregator); WithJwt(gateway);
+
+WithIdentityServer(orders);
+WithIdentityServer(catalog);
+WithIdentityServer(payments);
+WithIdentityServer(aggregator);
+WithIdentityServer(gateway);
+WithIdentityServer(reviews);
+
+aggregator.WaitFor(identityServer);
+catalog.WaitFor(identityServer);
+orders.WaitFor(identityServer);
+payments.WaitFor(identityServer);
+gateway.WaitFor(identityServer);
+reviews.WaitFor(identityServer);
 
 builder.Build().Run();

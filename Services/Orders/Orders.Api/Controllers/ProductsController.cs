@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 namespace Orders.Api.Controllers;
 
 [ApiController]
+[Authorize(Policy = "orders.read")]
 [Route("api/orders/products")]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]

@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 namespace Orders.Api.Controllers;
 
 [ApiController]
-[Authorize]
+[Authorize(Policy = "orders.read")]
 [Route("api/customers")]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
@@ -36,7 +36,7 @@ public class CustomersController(ICustomerService customerService) : ControllerB
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "orders.manage")]
     [ProducesResponseType(typeof(IEnumerable<CustomerDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<CustomerDto>>> GetAll(CancellationToken ct)
     {
@@ -45,6 +45,7 @@ public class CustomersController(ICustomerService customerService) : ControllerB
     }
 
     [HttpPost]
+    [Authorize(Policy = "orders.write")]
     [ProducesResponseType(typeof(long), StatusCodes.Status201Created)]
     public async Task<ActionResult<long>> Create(UpsertCustomerRequest request, CancellationToken ct)
     {
@@ -53,6 +54,7 @@ public class CustomersController(ICustomerService customerService) : ControllerB
     }
 
     [HttpPut("{id:long}")]
+    [Authorize(Policy = "orders.write")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Update(long id, UpsertCustomerRequest request, CancellationToken ct)
     {
@@ -61,7 +63,7 @@ public class CustomersController(ICustomerService customerService) : ControllerB
     }
 
     [HttpDelete("{id:long}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "orders.manage")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Delete(long id, CancellationToken ct)
     {

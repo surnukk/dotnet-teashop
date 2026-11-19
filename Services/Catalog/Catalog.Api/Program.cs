@@ -15,17 +15,30 @@ using Platform.EventBus;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Platform.ServiceDefaults.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();      // логування, трасування, health checks, service discovery
 
+// ---------- Authentication: Auth Service (HS256, Ч.1) + Duende IdentityServer (OAuth 2.0, Ч.2) ----------
 var jwt = builder.Configuration.GetSection("Jwt");
 var jwtSecret = jwt["SecretKey"] ?? throw new InvalidOperationException("Jwt:SecretKey is missing");
+var identityServerAuthority = builder.Configuration["IdentityServer:Authority"] ?? "http://localhost:5200";
 
 builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+    .AddAuthentication(options =>
+    {
+        options.DefaultScheme = PlatformAuthentication.SmartScheme;
+        options.DefaultChallengeScheme = PlatformAuthentication.SmartScheme;
+    })
+    .AddPolicyScheme(PlatformAuthentication.SmartScheme, "Auth Service or IdentityServer", options =>
+    {
+        options.ForwardDefaultSelector = context =>
+            PlatformAuthentication.SelectScheme(context, identityServerAuthority);
+    })
+    // токени Auth Service — без змін із Частини 1
+    .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
     {
         options.MapInboundClaims = false;
         options.TokenValidationParameters = new TokenValidationParameters
@@ -41,8 +54,27 @@ builder.Services
             NameClaimType = "unique_name",
             RoleClaimType = "role"
         };
+    })
+    // токени IdentityServer: підпис береться з /.well-known/openid-configuration
+    .AddJwtBearer(PlatformAuthentication.IdentityServerScheme, options =>
+    {
+        options.Authority = identityServerAuthority;
+        options.Audience = "products_api";             
+        options.RequireHttpsMetadata = false;           
+        options.MapInboundClaims = false;
+        options.RefreshInterval = TimeSpan.FromSeconds(10);     
+        options.AutomaticRefreshInterval = TimeSpan.FromMinutes(5);
+        options.TokenValidationParameters.NameClaimType = "name";
+        options.TokenValidationParameters.RoleClaimType = "role";
     });
-builder.Services.AddAuthorization();
+
+// ---------- Scope-based політики ----------
+var authServiceIssuer = jwt["Issuer"];
+builder.Services.AddAuthorization(options =>
+{
+    options.AddScopePolicy("products.read", "products.read", authServiceIssuer);
+    options.AddScopePolicy("products.write", "products.write", authServiceIssuer, firstPartyRole: "Admin");
+});
 
 builder.AddRabbitMQClient("messaging");        // реєструє IConnection (singleton) + телеметрію
 builder.Services.AddEventBusTopology();

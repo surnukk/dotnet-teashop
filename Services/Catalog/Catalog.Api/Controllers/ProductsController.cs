@@ -9,7 +9,7 @@ namespace Catalog.Api.Controllers;
 
 [ApiController]
 [Route("api/products")]
-[Authorize]
+[Authorize(Policy = "products.read")]
 public class ProductsController(IProductService service, CatalogMetrics metrics) : ControllerBase
 {
     [HttpGet]
@@ -37,7 +37,7 @@ public class ProductsController(IProductService service, CatalogMetrics metrics)
 
     /// <summary>Створити товар. Назва має бути унікальною.</summary>
     [HttpPost]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "products.write")]
     [ProducesResponseType(typeof(ProductDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -56,7 +56,7 @@ public class ProductsController(IProductService service, CatalogMetrics metrics)
 
     /// <summary>Змінити ціну товару.</summary>
     [HttpPut("{id:int}/price")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "products.write")]
     [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -70,7 +70,7 @@ public class ProductsController(IProductService service, CatalogMetrics metrics)
 
     /// <summary>Перейменувати товар (публікує ProductRenamedEvent).</summary>
     [HttpPut("{id:int}/name")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "products.write")]
     [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -85,7 +85,7 @@ public class ProductsController(IProductService service, CatalogMetrics metrics)
 
     /// <summary>Поповнити залишок.</summary>
     [HttpPost("{id:int}/stock/add")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "products.write")]
     [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -99,7 +99,7 @@ public class ProductsController(IProductService service, CatalogMetrics metrics)
 
     /// <summary>Списати залишок. Не можна списати більше, ніж є.</summary>
     [HttpPost("{id:int}/stock/remove")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "products.write")]
     [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -114,7 +114,7 @@ public class ProductsController(IProductService service, CatalogMetrics metrics)
 
     /// <summary>Видалити товар.</summary>
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "products.write")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(int id, CancellationToken ct)
@@ -126,7 +126,7 @@ public class ProductsController(IProductService service, CatalogMetrics metrics)
 
     /// <summary>Додати тег товару (запис у ProductTag, дату ставить база).</summary>
     [HttpPost("{id:int}/tags/{tagId:int}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "products.write")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -138,7 +138,7 @@ public class ProductsController(IProductService service, CatalogMetrics metrics)
 
     /// <summary>Прибрати тег із товару.</summary>
     [HttpDelete("{id:int}/tags/{tagId:int}")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "products.write")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> RemoveTag(int id, int tagId, CancellationToken ct)

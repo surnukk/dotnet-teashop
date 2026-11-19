@@ -1,5 +1,6 @@
 ﻿using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
+using Microsoft.AspNetCore.Authorization;
 using Orders.Bll.DTO;
 using Orders.Bll.Services;
 using Orders.Contracts;
@@ -8,6 +9,7 @@ using Orders.Domain.Exceptions;
 namespace Orders.Api.GrpcServices;
 
 /// <summary>gRPC-адаптер над BLL замовлень (той самий IOrderService, що й у REST-контролері).</summary>
+[Authorize(Policy = "orders.read")]
 public class OrdersGrpcService(IOrderService orders, ILogger<OrdersGrpcService> logger)
     : OrdersService.OrdersServiceBase
 {

@@ -15,6 +15,7 @@ using Reviews.WebApi.Metrics;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Platform.ServiceDefaults.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,10 +23,20 @@ builder.AddServiceDefaults();
 
 var jwt = builder.Configuration.GetSection("Jwt");
 var jwtSecret = jwt["SecretKey"] ?? throw new InvalidOperationException("Jwt:SecretKey is missing");
+var identityServerAuthority = builder.Configuration["IdentityServer:Authority"] ?? "http://localhost:5200";
 
 builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+    .AddAuthentication(options =>
+    {
+        options.DefaultScheme = PlatformAuthentication.SmartScheme;
+        options.DefaultChallengeScheme = PlatformAuthentication.SmartScheme;
+    })
+    .AddPolicyScheme(PlatformAuthentication.SmartScheme, "Auth Service or IdentityServer", options =>
+    {
+        options.ForwardDefaultSelector = context =>
+            PlatformAuthentication.SelectScheme(context, identityServerAuthority);
+    })
+    .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>   // Auth Service (HS256), як було
     {
         options.MapInboundClaims = false;
         options.TokenValidationParameters = new TokenValidationParameters
@@ -41,8 +52,23 @@ builder.Services
             NameClaimType = "unique_name",
             RoleClaimType = "role"
         };
+    })
+    .AddJwtBearer(PlatformAuthentication.IdentityServerScheme, options =>   // IdentityServer
+    {
+        options.Authority = identityServerAuthority;
+        options.Audience = "reviews_api";
+        options.RequireHttpsMetadata = false;
+        options.MapInboundClaims = false;
+        options.RefreshInterval = TimeSpan.FromSeconds(10);
+        options.AutomaticRefreshInterval = TimeSpan.FromMinutes(5);
+        options.TokenValidationParameters.NameClaimType = "name";
+        options.TokenValidationParameters.RoleClaimType = "role";
     });
-builder.Services.AddAuthorization();
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddScopePolicy("reviews.read", "reviews.read", jwt["Issuer"]);
+});
 
 builder.AddRabbitMQClient("messaging");
 builder.Services.AddEventBusTopology();

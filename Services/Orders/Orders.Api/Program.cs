@@ -17,6 +17,7 @@ using Platform.EventBus.Topology;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Platform.ServiceDefaults.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,10 +25,21 @@ builder.AddServiceDefaults();
 
 var jwt = builder.Configuration.GetSection("Jwt");
 var jwtSecret = jwt["SecretKey"] ?? throw new InvalidOperationException("Jwt:SecretKey is missing");
+var identityServerAuthority = builder.Configuration["IdentityServer:Authority"] ?? "http://localhost:5200";
 
 builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+    .AddAuthentication(options =>
+    {
+        options.DefaultScheme = PlatformAuthentication.SmartScheme;
+        options.DefaultChallengeScheme = PlatformAuthentication.SmartScheme;
+    })
+    .AddPolicyScheme(PlatformAuthentication.SmartScheme, "Auth Service or IdentityServer", options =>
+    {
+        options.ForwardDefaultSelector = context =>
+            PlatformAuthentication.SelectScheme(context, identityServerAuthority);
+    })
+    // токени Auth Service Ч без зм≥н ≥з „астини 1
+    .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
     {
         options.MapInboundClaims = false;
         options.TokenValidationParameters = new TokenValidationParameters
@@ -43,8 +55,28 @@ builder.Services
             NameClaimType = "unique_name",
             RoleClaimType = "role"
         };
+    })
+    // токени IdentityServer: п≥дпис беретьс€ з /.well-known/openid-configuration
+    .AddJwtBearer(PlatformAuthentication.IdentityServerScheme, options =>
+    {
+        options.Authority = identityServerAuthority;
+        options.Audience = "orders_api";               
+        options.RequireHttpsMetadata = false;           
+        options.MapInboundClaims = false;
+        options.RefreshInterval = TimeSpan.FromSeconds(10);    
+        options.AutomaticRefreshInterval = TimeSpan.FromMinutes(5);
+        options.TokenValidationParameters.NameClaimType = "name";
+        options.TokenValidationParameters.RoleClaimType = "role";
     });
-builder.Services.AddAuthorization();
+
+// ---------- Scope-based пол≥тики ----------
+var authServiceIssuer = jwt["Issuer"];
+builder.Services.AddAuthorization(options =>
+{
+    options.AddScopePolicy("orders.read", "orders.read", authServiceIssuer);
+    options.AddScopePolicy("orders.write", "orders.write", authServiceIssuer);
+    options.AddScopePolicy("orders.manage", "orders.write", authServiceIssuer, firstPartyRole: "Admin");
+});
 
 builder.AddRabbitMQClient("messaging");      
 builder.Services.AddEventBusTopology();

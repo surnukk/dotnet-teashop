@@ -4,17 +4,30 @@ using Yarp.ReverseProxy.Model;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Platform.ServiceDefaults.Security;
+using Yarp.ReverseProxy.Transforms;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
+// ---------- Auth: токени Auth Service + токени IdentityServer; Gateway валідує ПЕРЕД проксіюванням ----------
 var jwt = builder.Configuration.GetSection("Jwt");
 var jwtSecret = jwt["SecretKey"] ?? throw new InvalidOperationException("Jwt:SecretKey is missing");
+var identityServerAuthority = builder.Configuration["IdentityServer:Authority"] ?? "http://localhost:5200";
 
 builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+    .AddAuthentication(options =>
+    {
+        options.DefaultScheme = PlatformAuthentication.SmartScheme;
+        options.DefaultChallengeScheme = PlatformAuthentication.SmartScheme;
+    })
+    .AddPolicyScheme(PlatformAuthentication.SmartScheme, "Auth Service or IdentityServer", options =>
+    {
+        options.ForwardDefaultSelector = context =>
+            PlatformAuthentication.SelectScheme(context, identityServerAuthority);
+    })
+    .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
     {
         options.MapInboundClaims = false;
         options.TokenValidationParameters = new TokenValidationParameters
@@ -30,12 +43,35 @@ builder.Services
             NameClaimType = "unique_name",
             RoleClaimType = "role"
         };
+    })
+    .AddJwtBearer(PlatformAuthentication.IdentityServerScheme, options =>
+    {
+        options.Authority = identityServerAuthority;
+        options.RequireHttpsMetadata = false;
+        options.MapInboundClaims = false;
+        options.RefreshInterval = TimeSpan.FromSeconds(10);          // NEW: дозволяє оновити метадані вже через 10 с після збою
+        options.AutomaticRefreshInterval = TimeSpan.FromMinutes(5);
+        // Gateway не ресурс-сервер: приймає токени для будь-якого з ресурсів, а audience окремого сервісу перевіряє він сам
+        options.TokenValidationParameters.ValidAudiences = new[] { "orders_api", "products_api", "payments_api" };
+        options.TokenValidationParameters.NameClaimType = "name";
+        options.TokenValidationParameters.RoleClaimType = "role";
     });
 builder.Services.AddAuthorization();
 
 builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
-    .AddServiceDiscoveryDestinationResolver();     // http://orders-api -> реальна адреса від Aspire
+    .AddServiceDiscoveryDestinationResolver()
+    .AddTransforms(transformContext =>
+    {
+        transformContext.AddRequestTransform(context =>
+        {
+            context.ProxyRequest.Headers.Remove("X-User-Id");       // клієнт не може підробити заголовок
+            var userId = context.HttpContext.User.FindFirst("sub")?.Value;
+            if (!string.IsNullOrEmpty(userId))                      // у токена Client Credentials sub немає
+                context.ProxyRequest.Headers.TryAddWithoutValidation("X-User-Id", userId);
+            return ValueTask.CompletedTask;
+        });
+    });
 
 var app = builder.Build();
 

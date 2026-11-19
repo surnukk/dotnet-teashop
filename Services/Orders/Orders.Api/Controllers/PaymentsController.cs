@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 namespace Orders.Api.Controllers;
 
 [ApiController]
-[Authorize]
+[Authorize(Policy = "orders.read")]
 [Route("api/payments")]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
@@ -25,6 +25,7 @@ public class PaymentsController(IPaymentService paymentService) : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = "orders.write")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> ProcessPayment([FromBody] ProcessPaymentRequest request, CancellationToken ct)
     {
@@ -33,7 +34,7 @@ public class PaymentsController(IPaymentService paymentService) : ControllerBase
     }
 
     [HttpPost("order/{orderId:long}/refund")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "orders.manage")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Refund(long orderId, CancellationToken ct)
     {

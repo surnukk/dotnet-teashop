@@ -3,10 +3,12 @@ using MediatR;
 using Reviews.Application.Common.Models;
 using Reviews.Application.Queries.GetReviewsList;
 using Reviews.Contracts;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Reviews.WebApi.GrpcServices;
 
 /// <summary>gRPC-адаптер над застосунком Reviews: ті самі MediatR-запити, що й у REST-контролері.</summary>
+[Authorize(Policy = "reviews.read")]
 public class ReviewsGrpcService(ISender mediator, ILogger<ReviewsGrpcService> logger)
     : ReviewsService.ReviewsServiceBase
 {
