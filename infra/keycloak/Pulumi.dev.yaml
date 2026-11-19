@@ -5,3 +5,6 @@ config:
   keycloak:username: admin
   keycloak:password:
     secure: v1:BBedIXVqIX1ULPVX:WWRErhrvelPjnVrstq8/N+lbvgglaU1C
+  teashop-keycloak:testUserPassword:
+    secure: v1:poz9m4Z1/2A9OAMz:Q9R98GTfAIm5WaPaTg45aGQkzcfUdgWX
+  teashop-keycloak:temporaryPasswords: "true"

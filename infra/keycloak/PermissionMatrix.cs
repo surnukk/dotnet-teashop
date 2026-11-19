@@ -1,4 +1,6 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
 
 public static class PermissionMatrix
 {
@@ -49,4 +51,13 @@ public static class PermissionMatrix
             [Admin] = Scopes["payments-api"],
         },
     };
+
+    public static string BuildAuthorizationAttribute(string role)
+    {
+        var values = RoleScopes
+            .Where(api => api.Value.ContainsKey(role))
+            .Select(api => JsonSerializer.Serialize(new { rsname = api.Key, scopes = api.Value[role] }));
+
+        return string.Join("##", values);
+    }
 }
