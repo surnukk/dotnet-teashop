@@ -1,3 +1,4 @@
+using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
 
 var builder = DistributedApplication.CreateBuilder(args);
@@ -16,6 +17,7 @@ IResourceBuilder<IResourceWithConnectionString> identityDb;
 IResourceBuilder<IResourceWithConnectionString> identityServerDb;
 IResourceBuilder<IResourceWithConnectionString> redis;
 IResourceBuilder<IResourceWithConnectionString> rabbit;
+IResourceBuilder<KeycloakResource>? keycloak = null;
 
 if (useContainers)
 {
@@ -43,6 +45,13 @@ if (useContainers)
     rabbit = builder.AddRabbitMQ("messaging", password: rabbitPassword)
                     .WithDataVolume()
                     .WithManagementPlugin();
+
+    // ---------- Ч.3: Keycloak ----------
+    var keycloakAdmin = builder.AddParameter("keycloak-admin");
+    var keycloakAdminPassword = builder.AddParameter("keycloak-admin-password", secret: true);
+
+    keycloak = builder.AddKeycloak("keycloak", 8080, keycloakAdmin, keycloakAdminPassword)
+                      .WithDataVolume();  
 }
 else
 {
@@ -131,5 +140,12 @@ orders.WaitFor(identityServer);
 payments.WaitFor(identityServer);
 gateway.WaitFor(identityServer);
 reviews.WaitFor(identityServer);
+
+// Keycloak: посилання для сервісів, що перевірятимуть його токени
+if (keycloak is not null)
+{
+    foreach (var svc in new[] { orders, catalog, payments })
+        svc.WithReference(keycloak).WaitFor(keycloak);
+}
 
 builder.Build().Run();

@@ -1,0 +1,7 @@
+name: teashop-keycloak
+description: Keycloak realm for teashop
+runtime: dotnet
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: csharp

@@ -25,6 +25,8 @@ builder.AddServiceDefaults();      // логуванн€, трасуванн€, health checks, serv
 var jwt = builder.Configuration.GetSection("Jwt");
 var jwtSecret = jwt["SecretKey"] ?? throw new InvalidOperationException("Jwt:SecretKey is missing");
 var identityServerAuthority = builder.Configuration["IdentityServer:Authority"] ?? "http://localhost:5200";
+var keycloakIssuer = builder.Configuration["Keycloak:Issuer"]
+                     ?? "http://localhost:8080/realms/DevRealmDrivers";
 
 builder.Services
     .AddAuthentication(options =>
@@ -35,7 +37,7 @@ builder.Services
     .AddPolicyScheme(PlatformAuthentication.SmartScheme, "Auth Service or IdentityServer", options =>
     {
         options.ForwardDefaultSelector = context =>
-            PlatformAuthentication.SelectScheme(context, identityServerAuthority);
+            PlatformAuthentication.SelectScheme(context, identityServerAuthority, keycloakIssuer);
     })
     // токени Auth Service Ч без зм≥н ≥з „астини 1
     .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
@@ -66,7 +68,17 @@ builder.Services
         options.AutomaticRefreshInterval = TimeSpan.FromMinutes(5);
         options.TokenValidationParameters.NameClaimType = "name";
         options.TokenValidationParameters.RoleClaimType = "role";
-    });
+    })
+        .AddKeycloakJwtBearer(
+        serviceName: "keycloak",
+        realm: "DevRealmDrivers",
+        authenticationScheme: PlatformAuthentication.KeycloakScheme,
+        configureOptions: options =>
+        {
+            options.Audience = "products-api";
+            options.MapInboundClaims = false;
+            options.RequireHttpsMetadata = false;   // Keycloak у розробц≥ Ч HTTP
+        });
 
 // ---------- Scope-based пол≥тики ----------
 var authServiceIssuer = jwt["Issuer"];

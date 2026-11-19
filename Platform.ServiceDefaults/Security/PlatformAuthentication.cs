@@ -10,8 +10,10 @@ public static class PlatformAuthentication
 {
     public const string SmartScheme = "Smart";   
     public const string IdentityServerScheme = "IdentityServer";
+    public const string KeycloakScheme = "Keycloak";
 
-    public static string SelectScheme(HttpContext context, string identityServerAuthority)
+    public static string SelectScheme(
+    HttpContext context, string identityServerAuthority, string? keycloakIssuer = null)
     {
         var header = context.Request.Headers.Authorization.ToString();
         if (header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
@@ -19,15 +21,20 @@ public static class PlatformAuthentication
             var token = header["Bearer ".Length..].Trim();
             var handler = new JwtSecurityTokenHandler();
 
-            if (handler.CanReadToken(token) &&
-                string.Equals(handler.ReadJwtToken(token).Issuer, identityServerAuthority.TrimEnd('/'),
-                    StringComparison.Ordinal))
+            if (handler.CanReadToken(token))
             {
-                return IdentityServerScheme;
+                var issuer = handler.ReadJwtToken(token).Issuer;
+
+                if (keycloakIssuer is not null &&
+                    string.Equals(issuer, keycloakIssuer.TrimEnd('/'), StringComparison.Ordinal))
+                    return KeycloakScheme;
+
+                if (string.Equals(issuer, identityServerAuthority.TrimEnd('/'), StringComparison.Ordinal))
+                    return IdentityServerScheme;
             }
         }
 
-        return JwtBearerDefaults.AuthenticationScheme;  
+        return JwtBearerDefaults.AuthenticationScheme;
     }
 }
 

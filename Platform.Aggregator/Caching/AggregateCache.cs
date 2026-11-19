@@ -55,7 +55,7 @@ public sealed class AggregateCache(IDistributedCache cache, ILogger<AggregateCac
     private async Task<TResult?> CallAsync<TResult>(Func<CancellationToken, Task<TResult>> operation, CancellationToken ct)
     {
         if (DateTime.UtcNow.Ticks < Interlocked.Read(ref _downUntilTicks))
-            return default;                                    // Redis недавно не відповідав: працюємо без кешу
+            return default;                          
 
         try
         {

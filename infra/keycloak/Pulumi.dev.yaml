@@ -1,0 +1,7 @@
+encryptionsalt: v1:E0ZWFhB45WQ=:v1:mqs8enCcnsgNTbCQ:Jv5XIxoOE/zOfCA0XF7ioi6fSx1UOw==
+config:
+  keycloak:url: http://localhost:8080
+  keycloak:clientId: admin-cli
+  keycloak:username: admin
+  keycloak:password:
+    secure: v1:BBedIXVqIX1ULPVX:WWRErhrvelPjnVrstq8/N+lbvgglaU1C
