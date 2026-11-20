@@ -2,22 +2,25 @@
 using Catalog.Bll.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Platform.ServiceDefaults.Security;
 
 namespace Catalog.Api.Controllers;
 
 [ApiController]
 [Route("api/categories")]
-[Authorize(Policy = "products.read")]
+[Authorize]
 public class CategoriesController(ICategoryService service) : ControllerBase
 {
     /// <summary>Список категорій.</summary>
     [HttpGet]
+    [RequirePermission("products:read")]
     [ProducesResponseType(typeof(IReadOnlyList<CategoryDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<CategoryDto>>> GetAll(CancellationToken ct)
         => Ok(await service.GetAllAsync(ct));
 
     /// <summary>Категорія разом із товарами (Explicit Loading).</summary>
     [HttpGet("{id:int}")]
+    [RequirePermission("products:read")]
     [ProducesResponseType(typeof(CategoryWithProductsDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<CategoryWithProductsDto>> GetById(int id, CancellationToken ct)
@@ -25,7 +28,7 @@ public class CategoriesController(ICategoryService service) : ControllerBase
 
     /// <summary>Створити категорію. Назва має бути унікальною.</summary>
     [HttpPost]
-    [Authorize(Policy = "products.write")]
+    [RequirePermission("products:create")]
     [ProducesResponseType(typeof(CategoryDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -37,7 +40,7 @@ public class CategoriesController(ICategoryService service) : ControllerBase
 
     /// <summary>Змінити назву й опис категорії.</summary>
     [HttpPut("{id:int}")]
-    [Authorize(Policy = "products.write")]
+    [RequirePermission("products:update")]
     [ProducesResponseType(typeof(CategoryDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

@@ -2,15 +2,17 @@
 using Catalog.Bll.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Platform.ServiceDefaults.Security;
 
 namespace Catalog.Api.Controllers;
 
 [ApiController]
 [Route("api/tags")]
-[Authorize(Policy = "products.read")]
+[Authorize]
 public class TagsController(ITagService service) : ControllerBase
 {
     [HttpGet("{tagName}/products")]
+    [RequirePermission("products:read")]
     [ProducesResponseType(typeof(IReadOnlyList<ProductDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<ProductDto>>> GetRecentProducts(
         string tagName, [FromQuery] DateTime? since, CancellationToken ct)
@@ -19,12 +21,14 @@ public class TagsController(ITagService service) : ControllerBase
 
     /// <summary>Список усіх тегів.</summary>
     [HttpGet]
+    [RequirePermission("products:read")]
     [ProducesResponseType(typeof(IReadOnlyList<TagDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<TagDto>>> GetAll(CancellationToken ct)
         => Ok(await service.GetAllAsync(ct));
 
     /// <summary>Тег за Id.</summary>
     [HttpGet("{id:int}")]
+    [RequirePermission("products:read")]
     [ProducesResponseType(typeof(TagDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<TagDto>> GetById(int id, CancellationToken ct)
@@ -32,7 +36,7 @@ public class TagsController(ITagService service) : ControllerBase
 
     /// <summary>Створити тег. Назва має бути унікальною.</summary>
     [HttpPost]
-    [Authorize(Policy = "products.write")]
+    [RequirePermission("products:create")]
     [ProducesResponseType(typeof(TagDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]

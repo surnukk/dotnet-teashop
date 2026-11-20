@@ -86,7 +86,14 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddScopePolicy("products.read", "products.read", authServiceIssuer);
     options.AddScopePolicy("products.write", "products.write", authServiceIssuer, firstPartyRole: "Admin");
+
+    options.AddPermissionPolicy("products:read", legacyPolicy: "products.read");
+    options.AddPermissionPolicy("products:create", legacyPolicy: "products.write");
+    options.AddPermissionPolicy("products:update", legacyPolicy: "products.write");
+    options.AddPermissionPolicy("products:delete", legacyPolicy: "products.write");
+    options.AddPermissionPolicy("products:publish", legacyPolicy: "products.write");
 });
+builder.Services.AddPermissionAuthorization();
 
 builder.AddRabbitMQClient("messaging");        // реєструє IConnection (singleton) + телеметрію
 builder.Services.AddEventBusTopology();

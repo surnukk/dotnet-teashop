@@ -9,7 +9,7 @@ namespace Orders.Api.Controllers;
 
 [ApiController]
 [Route("api/orders")]
-[Authorize(Policy = "orders.read")]
+[Authorize]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
@@ -30,7 +30,7 @@ public class OrdersController(
     }
 
     [HttpGet("{id:long}")]
-    [Authorize(Policy = "orders.read")]
+    [RequirePermission("orders:read")]
     [ProducesResponseType(typeof(OrderDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<OrderDto>> GetById(long id, CancellationToken ct)
     {
@@ -45,7 +45,7 @@ public class OrdersController(
     }
 
     [HttpPost("{id:long}/ship")]
-    [Authorize(Policy = "orders.manage")]
+    [RequirePermission("orders:approve")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Ship(long id, CancellationToken ct)
     {
@@ -55,7 +55,7 @@ public class OrdersController(
     }
 
     [HttpGet("customer/{customerId:long}")]
-    [Authorize(Policy = "orders.read")]
+    [RequirePermission("orders:read")]
     [ProducesResponseType(typeof(IEnumerable<OrderDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<OrderDto>>> GetByCustomer(long customerId, CancellationToken ct)
     {
@@ -67,7 +67,7 @@ public class OrdersController(
     }
 
     [HttpPost]
-    [Authorize(Policy = "orders.write")]
+    [RequirePermission("orders:create")]
     [ProducesResponseType(typeof(long), StatusCodes.Status201Created)]
     public async Task<ActionResult<long>> Create([FromBody] CreateOrderRequest request, CancellationToken ct)
     {
@@ -80,7 +80,7 @@ public class OrdersController(
     }
 
     [HttpPost("{id:long}/confirm")]
-    [Authorize(Policy = "orders.write")]
+    [RequirePermission("orders:update")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Confirm(long id, CancellationToken ct)
     {
@@ -94,7 +94,7 @@ public class OrdersController(
     }
 
     [HttpPost("{id:long}/cancel")]
-    [Authorize(Policy = "orders.write")]
+    [RequirePermission("orders:update")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Cancel(long id, CancellationToken ct)
     {
@@ -104,6 +104,38 @@ public class OrdersController(
 
         await metrics.MeasureCommandAsync("cancel", () => orderService.CancelOrderAsync(id, ct));
         metrics.OrderCancelled();
+        return NoContent();
+    }
+
+    [HttpGet]
+    [RequirePermission("orders:read")]
+    public ActionResult<IEnumerable<OrderDto>> GetAll() => Ok(Array.Empty<OrderDto>());
+
+    [HttpPut("{id:long}")]
+    [RequirePermission("orders:update")]
+    public async Task<IActionResult> Update(long id, CancellationToken ct)
+    {
+        var order = await orderService.GetByIdAsync(id, ct);
+        return order is null ? NotFound() : Ok();
+    }
+
+    [HttpDelete("{id:long}")]
+    [RequirePermission("orders:delete")]
+    public async Task<IActionResult> Delete(long id, CancellationToken ct)
+    {
+        var order = await orderService.GetByIdAsync(id, ct);
+        if (order is null) return NotFound();
+        await orderService.CancelOrderAsync(id, ct);
+        return NoContent();
+    }
+
+    [HttpPost("{id:long}/approve")]
+    [RequirePermission("orders:approve")]
+    public async Task<IActionResult> Approve(long id, CancellationToken ct)
+    {
+        var order = await orderService.GetByIdAsync(id, ct);
+        if (order is null) return NotFound();
+        await orderService.ConfirmOrderAsync(id, ct);
         return NoContent();
     }
 }

@@ -15,6 +15,7 @@ builder.AddServiceDefaults();
 var jwt = builder.Configuration.GetSection("Jwt");
 var jwtSecret = jwt["SecretKey"] ?? throw new InvalidOperationException("Jwt:SecretKey is missing");
 var identityServerAuthority = builder.Configuration["IdentityServer:Authority"] ?? "http://localhost:5200";
+var keycloakIssuer = builder.Configuration["Keycloak:Issuer"] ?? "http://localhost:8080/realms/DevRealmDrivers";
 
 builder.Services
     .AddAuthentication(options =>
@@ -25,7 +26,7 @@ builder.Services
     .AddPolicyScheme(PlatformAuthentication.SmartScheme, "Auth Service or IdentityServer", options =>
     {
         options.ForwardDefaultSelector = context =>
-            PlatformAuthentication.SelectScheme(context, identityServerAuthority);
+            PlatformAuthentication.SelectScheme(context, identityServerAuthority, keycloakIssuer);
     })
     .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
     {
@@ -55,7 +56,19 @@ builder.Services
         options.TokenValidationParameters.ValidAudiences = new[] { "orders_api", "products_api", "payments_api" };
         options.TokenValidationParameters.NameClaimType = "name";
         options.TokenValidationParameters.RoleClaimType = "role";
-    });
+    })
+        .AddKeycloakJwtBearer(
+        serviceName: "keycloak",
+        realm: "DevRealmDrivers",
+        authenticationScheme: PlatformAuthentication.KeycloakScheme,
+        configureOptions: options =>
+        {
+            options.MapInboundClaims = false;
+            options.RequireHttpsMetadata = false;
+            // Gateway приймає токен для будь-якого з трьох API
+            options.TokenValidationParameters.ValidAudiences =
+                new[] { "orders-api", "products-api", "payments-api" };
+        });
 builder.Services.AddAuthorization();
 
 builder.Services.AddReverseProxy()

@@ -85,10 +85,19 @@ builder.Services
 var authServiceIssuer = jwt["Issuer"];
 builder.Services.AddAuthorization(options =>
 {
+    // Ч.2: scope-based політики (для токенів IdentityServer)
     options.AddScopePolicy("orders.read", "orders.read", authServiceIssuer);
     options.AddScopePolicy("orders.write", "orders.write", authServiceIssuer);
     options.AddScopePolicy("orders.manage", "orders.write", authServiceIssuer, firstPartyRole: "Admin");
+
+    // Ч.3: політика на кожен permission з таблиці 3.3.1
+    options.AddPermissionPolicy("orders:read", legacyPolicy: "orders.read");
+    options.AddPermissionPolicy("orders:create", legacyPolicy: "orders.write");
+    options.AddPermissionPolicy("orders:update", legacyPolicy: "orders.write");
+    options.AddPermissionPolicy("orders:delete", legacyPolicy: "orders.manage");
+    options.AddPermissionPolicy("orders:approve", legacyPolicy: "orders.manage");
 });
+builder.Services.AddPermissionAuthorization();
 
 builder.AddRabbitMQClient("messaging");      
 builder.Services.AddEventBusTopology();

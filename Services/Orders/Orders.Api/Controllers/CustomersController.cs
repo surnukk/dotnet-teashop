@@ -2,11 +2,12 @@
 using Orders.Bll.DTO;
 using Orders.Bll.Services;
 using Microsoft.AspNetCore.Authorization;
+using Platform.ServiceDefaults.Security;
 
 namespace Orders.Api.Controllers;
 
 [ApiController]
-[Authorize(Policy = "orders.read")]
+[Authorize]
 [Route("api/customers")]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
@@ -14,6 +15,7 @@ namespace Orders.Api.Controllers;
 public class CustomersController(ICustomerService customerService) : ControllerBase
 {
     [HttpGet("{id:long}")]
+    [RequirePermission("orders:read")]
     [ProducesResponseType(typeof(CustomerDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<CustomerDto>> GetById(long id, CancellationToken ct)
     {
@@ -25,6 +27,7 @@ public class CustomersController(ICustomerService customerService) : ControllerB
     }
 
     [HttpGet("by-email")]
+    [RequirePermission("orders:read")]
     [ProducesResponseType(typeof(CustomerDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<CustomerDto>> GetByEmail([FromQuery] string email, CancellationToken ct)
     {
@@ -36,7 +39,7 @@ public class CustomersController(ICustomerService customerService) : ControllerB
     }
 
     [HttpGet]
-    [Authorize(Policy = "orders.manage")]
+    [RequirePermission("orders:read")]
     [ProducesResponseType(typeof(IEnumerable<CustomerDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<CustomerDto>>> GetAll(CancellationToken ct)
     {
@@ -45,7 +48,7 @@ public class CustomersController(ICustomerService customerService) : ControllerB
     }
 
     [HttpPost]
-    [Authorize(Policy = "orders.write")]
+    [RequirePermission("orders:create")]
     [ProducesResponseType(typeof(long), StatusCodes.Status201Created)]
     public async Task<ActionResult<long>> Create(UpsertCustomerRequest request, CancellationToken ct)
     {
@@ -54,7 +57,7 @@ public class CustomersController(ICustomerService customerService) : ControllerB
     }
 
     [HttpPut("{id:long}")]
-    [Authorize(Policy = "orders.write")]
+    [RequirePermission("orders:update")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Update(long id, UpsertCustomerRequest request, CancellationToken ct)
     {
@@ -63,7 +66,7 @@ public class CustomersController(ICustomerService customerService) : ControllerB
     }
 
     [HttpDelete("{id:long}")]
-    [Authorize(Policy = "orders.manage")]
+    [RequirePermission("orders:delete")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Delete(long id, CancellationToken ct)
     {

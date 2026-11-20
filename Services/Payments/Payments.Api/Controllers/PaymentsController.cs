@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Platform.ServiceDefaults.Security;
 
 namespace Payments.Api.Controllers;
 
@@ -16,32 +17,32 @@ public class PaymentsController : ControllerBase
     };
 
     [HttpGet]
-    [Authorize(Policy = "payments.read")]
+    [RequirePermission("payments:read")]
     public ActionResult<IEnumerable<PaymentStub>> GetAll() => Ok(Samples);
 
     [HttpGet("{id:int}")]
-    [Authorize(Policy = "payments.read")]
+    [RequirePermission("payments:read")]
     public ActionResult<PaymentStub> GetById(int id)
     {
         var payment = Samples.FirstOrDefault(p => p.Id == id);
         return payment is null ? NotFound() : Ok(payment);
     }
 
-    [HttpPost]
-    [Authorize(Policy = "payments.write")]
+    [HttpPost("process")]
+    [RequirePermission("payments:process")]
     public ActionResult<PaymentStub> Create([FromBody] CreatePaymentRequest request)
     {
         var created = new PaymentStub(Samples.Length + 1, request.OrderId, request.Amount, "Pending");
         return Created($"/api/billing/payments/{created.Id}", created);
     }
 
-    [HttpPost("{id:int}/refund")]
-    [Authorize(Policy = "payments.write")]
-    public IActionResult Refund(int id) => Accepted(new { paymentId = id, status = "RefundRequested" });
+    [HttpPost("refund")]
+    [RequirePermission("payments:refund")]
+    public IActionResult Refund([FromQuery] int id) => Accepted(new { paymentId = id, status = "RefundRequested" });
 
     // Діагностика: що бачить сервіс у токені та в заголовку від Gateway
     [HttpGet("whoami")]
-    [Authorize(Policy = "payments.read")]
+    [RequirePermission("payments:read")]
     public IActionResult WhoAmI() => Ok(new
     {
         sub = User.FindFirst("sub")?.Value,

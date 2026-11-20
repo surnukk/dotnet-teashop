@@ -108,5 +108,22 @@ return await Deployment.RunAsync(() =>
     {
         ["RealmUrl"] = Output.Format($"{url}/realms/{realm.RealmName}"),
         ["AdminConsoleUrl"] = Output.Format($"{url}/admin/master/console/#/{realm.RealmName}"),
+
+        // порядок: postman, swagger, aggregator, orders-api, products-api, payments-api
+        ["ClientIds"] = Output.All(
+        postman.ClientId, swagger.ClientId, aggregator.ClientId,
+        ordersApi.Client.ClientId, productsApi.Client.ClientId, paymentsApi.Client.ClientId),
+
+        ["ClientSecrets"] = Output.All(
+            postman.ClientSecret, aggregator.ClientSecret,
+            ordersApi.Client.ClientSecret, productsApi.Client.ClientSecret, paymentsApi.Client.ClientSecret)
+        .Apply(s => new Dictionary<string, string>
+        {
+            ["teashop-postman"] = s[0],
+            ["teashop-aggregator"] = s[1],
+            ["orders-api"] = s[2],
+            ["products-api"] = s[3],
+            ["payments-api"] = s[4],
+        }),
     };
 });

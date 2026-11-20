@@ -4,15 +4,17 @@ using Catalog.Bll.Services;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Platform.ServiceDefaults.Security;
 
 namespace Catalog.Api.Controllers;
 
 [ApiController]
 [Route("api/products")]
-[Authorize(Policy = "products.read")]
+[Authorize]
 public class ProductsController(IProductService service, CatalogMetrics metrics) : ControllerBase
 {
     [HttpGet]
+    [RequirePermission("products:read")]
     [ProducesResponseType(typeof(PagedResult<ProductDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<PagedResult<ProductDto>>> GetList(
@@ -30,6 +32,7 @@ public class ProductsController(IProductService service, CatalogMetrics metrics)
 
     /// <summary>Картка товару з деталями, картинками й тегами (Eager Loading).</summary>
     [HttpGet("{id:int}")]
+    [RequirePermission("products:read")]
     [ProducesResponseType(typeof(ProductDetailsDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ProductDetailsDto>> GetById(int id, CancellationToken ct)
@@ -37,7 +40,7 @@ public class ProductsController(IProductService service, CatalogMetrics metrics)
 
     /// <summary>Створити товар. Назва має бути унікальною.</summary>
     [HttpPost]
-    [Authorize(Policy = "products.write")]
+    [RequirePermission("products:create")]
     [ProducesResponseType(typeof(ProductDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -56,7 +59,7 @@ public class ProductsController(IProductService service, CatalogMetrics metrics)
 
     /// <summary>Змінити ціну товару.</summary>
     [HttpPut("{id:int}/price")]
-    [Authorize(Policy = "products.write")]
+    [RequirePermission("products:update")]
     [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -70,7 +73,7 @@ public class ProductsController(IProductService service, CatalogMetrics metrics)
 
     /// <summary>Перейменувати товар (публікує ProductRenamedEvent).</summary>
     [HttpPut("{id:int}/name")]
-    [Authorize(Policy = "products.write")]
+    [RequirePermission("products:update")]
     [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -85,7 +88,7 @@ public class ProductsController(IProductService service, CatalogMetrics metrics)
 
     /// <summary>Поповнити залишок.</summary>
     [HttpPost("{id:int}/stock/add")]
-    [Authorize(Policy = "products.write")]
+    [RequirePermission("products:update")]
     [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -99,7 +102,7 @@ public class ProductsController(IProductService service, CatalogMetrics metrics)
 
     /// <summary>Списати залишок. Не можна списати більше, ніж є.</summary>
     [HttpPost("{id:int}/stock/remove")]
-    [Authorize(Policy = "products.write")]
+    [RequirePermission("products:update")]
     [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -114,7 +117,7 @@ public class ProductsController(IProductService service, CatalogMetrics metrics)
 
     /// <summary>Видалити товар.</summary>
     [HttpDelete("{id:int}")]
-    [Authorize(Policy = "products.write")]
+    [RequirePermission("products:delete")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(int id, CancellationToken ct)
@@ -126,7 +129,7 @@ public class ProductsController(IProductService service, CatalogMetrics metrics)
 
     /// <summary>Додати тег товару (запис у ProductTag, дату ставить база).</summary>
     [HttpPost("{id:int}/tags/{tagId:int}")]
-    [Authorize(Policy = "products.write")]
+    [RequirePermission("products:update")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -138,7 +141,7 @@ public class ProductsController(IProductService service, CatalogMetrics metrics)
 
     /// <summary>Прибрати тег із товару.</summary>
     [HttpDelete("{id:int}/tags/{tagId:int}")]
-    [Authorize(Policy = "products.write")]
+    [RequirePermission("products:update")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> RemoveTag(int id, int tagId, CancellationToken ct)
@@ -155,5 +158,13 @@ public class ProductsController(IProductService service, CatalogMetrics metrics)
         return result.IsValid
             ? null
             : ValidationProblem(new ValidationProblemDetails(result.ToDictionary()));
+    }
+
+    [HttpPost("{id:int}/publish")]
+    [RequirePermission("products:publish")]
+    public async Task<IActionResult> Publish(int id, CancellationToken ct)
+    {
+        await service.GetByIdAsync(id, ct);   // 404, якщо товару немає
+        return NoContent();
     }
 }

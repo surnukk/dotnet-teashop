@@ -2,11 +2,12 @@
 using Orders.Bll.DTO;
 using Orders.Bll.Services;
 using Microsoft.AspNetCore.Authorization;
+using Platform.ServiceDefaults.Security;
 
 namespace Orders.Api.Controllers;
 
 [ApiController]
-[Authorize(Policy = "orders.read")]
+[Authorize]
 [Route("api/promotions")]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
@@ -14,6 +15,7 @@ namespace Orders.Api.Controllers;
 public class PromotionsController(IPromotionService promotionService) : ControllerBase
 {
     [HttpGet("{id:long}")]
+    [RequirePermission("orders:read")]
     [ProducesResponseType(typeof(PromotionDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<PromotionDto>> GetById(long id, CancellationToken ct)
     {
@@ -25,6 +27,7 @@ public class PromotionsController(IPromotionService promotionService) : Controll
     }
 
     [HttpGet("by-code/{code}")]
+    [RequirePermission("orders:read")]
     [ProducesResponseType(typeof(PromotionDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<PromotionDto>> GetByCode(string code, CancellationToken ct)
     {
@@ -36,6 +39,7 @@ public class PromotionsController(IPromotionService promotionService) : Controll
     }
 
     [HttpGet("active")]
+    [RequirePermission("orders:read")]
     [ProducesResponseType(typeof(IEnumerable<PromotionDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<PromotionDto>>> GetActive(CancellationToken ct)
     {
@@ -44,7 +48,7 @@ public class PromotionsController(IPromotionService promotionService) : Controll
     }
 
     [HttpPost]
-    [Authorize(Policy = "orders.manage")]
+    [RequirePermission("orders:create")]
     [ProducesResponseType(typeof(long), StatusCodes.Status201Created)]
     public async Task<ActionResult<long>> Create(UpsertPromotionRequest request, CancellationToken ct)
     {
@@ -53,7 +57,7 @@ public class PromotionsController(IPromotionService promotionService) : Controll
     }
 
     [HttpPut("{id:long}")]
-    [Authorize(Policy = "orders.manage")]
+    [RequirePermission("orders:update")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Update(long id, UpsertPromotionRequest request, CancellationToken ct)
     {
@@ -62,7 +66,7 @@ public class PromotionsController(IPromotionService promotionService) : Controll
     }
 
     [HttpDelete("{id:long}")]
-    [Authorize(Policy = "orders.manage")]
+    [RequirePermission("orders:delete")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Delete(long id, CancellationToken ct)
     {

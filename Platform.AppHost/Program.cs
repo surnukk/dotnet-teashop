@@ -144,7 +144,7 @@ reviews.WaitFor(identityServer);
 // Keycloak: посилання для сервісів, що перевірятимуть його токени
 if (keycloak is not null)
 {
-    foreach (var svc in new[] { orders, catalog, payments })
+    foreach (var svc in new[] { orders, catalog, payments, gateway })
         svc.WithReference(keycloak).WaitFor(keycloak);
 }
 

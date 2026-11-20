@@ -2,11 +2,12 @@
 using Orders.Bll.DTO;
 using Orders.Bll.Services;
 using Microsoft.AspNetCore.Authorization;
+using Platform.ServiceDefaults.Security;
 
 namespace Orders.Api.Controllers;
 
 [ApiController]
-[Authorize(Policy = "orders.read")]
+[Authorize]
 [Route("api/payments")]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
 [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
@@ -14,6 +15,7 @@ namespace Orders.Api.Controllers;
 public class PaymentsController(IPaymentService paymentService) : ControllerBase
 {
     [HttpGet("order/{orderId:long}")]
+    [RequirePermission("orders:read")]
     [ProducesResponseType(typeof(PaymentRecordDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<PaymentRecordDto>> GetByOrderId(long orderId, CancellationToken ct)
     {
@@ -25,7 +27,7 @@ public class PaymentsController(IPaymentService paymentService) : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Policy = "orders.write")]
+    [RequirePermission("orders:create")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> ProcessPayment([FromBody] ProcessPaymentRequest request, CancellationToken ct)
     {
@@ -34,7 +36,7 @@ public class PaymentsController(IPaymentService paymentService) : ControllerBase
     }
 
     [HttpPost("order/{orderId:long}/refund")]
-    [Authorize(Policy = "orders.manage")]
+    [RequirePermission("orders:approve")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Refund(long orderId, CancellationToken ct)
     {
