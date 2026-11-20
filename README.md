@@ -804,3 +804,69 @@ Redis повертає Degraded, а не Unhealthy, бо кеш є необов'
 - **Resources:** жовті та червоні ресурси, клік показує деталі health checks.
 
 Aspire Dashboard це інструмент розробки (дані лише в пам'яті). У production використовують Grafana + Prometheus або Azure Monitor / Application Insights; метрики OpenTelemetry підтримуються ними без змін коду.
+
+## 10. Лаб. 10: розгортання в Kubernetes (Aspir8 і ручні маніфести)
+
+### 10.1. Що зроблено
+
+| Артефакт | Де лежить |
+|---|---|
+| Маніфести всієї платформи (згенеровано aspirate з AppHost, без секретів) | `Platform.AppHost/aspirate-output/` |
+| Багатоетапні Dockerfile | `Services/Catalog/Catalog.Api/Dockerfile`, `Platform.ApiGateway/Dockerfile` |
+| Ручні Deployment/Service (2 репліки, liveness/readiness) | `deploy/k8s/*-deployment.yaml`, `*-service.yaml` |
+| ConfigMap з адресами сервісів | `deploy/k8s/configmap.yaml` |
+| Команди створення Secrets (самі секрети не в репозиторії) | `deploy/k8s/README.md` |
+
+### 10.2. Вимоги
+
+Docker Desktop з увімкненим Kubernetes, `kubectl`, .NET 8 SDK, інструмент `aspirate` (`dotnet tool install -g aspirate`).
+
+### 10.3. Розгортання через Aspir8
+
+```powershell
+cd Platform.AppHost
+$env:Light = "true" # необов'язково: вимикає Keycloak і другий SQL Server (для слабких ноутбуків)
+aspirate init # один раз
+aspirate generate --image-pull-policy IfNotPresent
+aspirate apply
+kubectl get pods,services
+```
+
+Під час `generate` aspirate питає паролі (`sql-password`, `rabbit-password` без спецсимволів, `jwt-secret` від 32 символів) і пароль шифрування секретів. Файли зі секретами (`aspirate-state.json` тощо) у репозиторій не потрапляють (`.gitignore`). Прибрати платформу: `aspirate destroy`.
+
+### 10.4. Ручне розгортання gateway і catalog-api
+
+Із кореня репозиторію:
+
+```powershell
+docker build -t catalog-api:v1 -f Services/Catalog/Catalog.Api/Dockerfile .
+docker build -t gateway:v1 -f Platform.ApiGateway/Dockerfile .
+kubectl apply -f deploy/k8s/configmap.yaml
+# створити Secrets (команди в deploy/k8s/README.md)
+kubectl apply -f deploy/k8s/catalog-api-deployment.yaml -f deploy/k8s/catalog-api-service.yaml
+kubectl apply -f deploy/k8s/gateway-deployment.yaml -f deploy/k8s/gateway-service.yaml
+```
+
+Локальні образи доступні кластеру Docker Desktop без реєстру (`imagePullPolicy: IfNotPresent`).
+
+### 10.5. Конфігурація: ConfigMap і Secrets
+
+- **ConfigMap** (`gateway-config`, `catalog-config`) містить відкриті дані: адреси сервісів у форматі `services__<ім'я>__http__0` (як передавав Aspire) та `Jwt__Issuer`/`Jwt__Audience`. Адреси вказують на DNS-імена Kubernetes Service, тому код Gateway не змінюється.
+- **Secrets** (`catalog-secrets`, `gateway-secrets`) містять рядки підключення та ключ підпису JWT. Вони створюються командою `kubectl create secret generic ...` і **не зберігаються в репозиторії** (команди в `deploy/k8s/README.md`).
+- Контейнери отримують їх через `envFrom` (`configMapRef` / `secretRef`).
+- Secrets у Kubernetes лише закодовані в Base64, не зашифровані; у production використовують шифрування etcd і зовнішні сховища (Vault, Azure Key Vault).
+
+### 10.6. Перевірка
+
+```powershell
+kubectl port-forward service/gateway 8080:80
+# отримати токен через /auth/login, потім:
+# GET http://localhost:8080/api/products  з заголовком Authorization: Bearer <токен>
+kubectl logs deploy/gateway | Select-String catalog
+```
+
+### 10.7. Aspir8 проти ручних маніфестів
+
+- Aspirate створює ConfigMap `<сервіс>-env` і Secret `<сервіс>-secrets` для кожного сервісу; вручну ми розділили конфігурацію на `gateway-config`/`catalog-config` і Secrets.
+- Services від aspirate відкривають порти 8080 і 8443, ручні Services мають стабільний порт 80 → 8080.
+- Ручні Deployment мають 2 репліки і liveness/readiness проби з Лаб. 07.

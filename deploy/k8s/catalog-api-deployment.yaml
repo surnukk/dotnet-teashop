@@ -16,6 +16,11 @@ spec:
           imagePullPolicy: IfNotPresent      # локальний образ
           ports:
             - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: catalog-config
+            - secretRef:
+                name: catalog-secrets
           livenessProbe:                     # збій -> перезапуск контейнера
             httpGet: { path: /health/live, port: 8080 }
             periodSeconds: 10

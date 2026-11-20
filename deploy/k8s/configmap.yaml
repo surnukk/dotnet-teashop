@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-config
+data:
+  ASPNETCORE_ENVIRONMENT: "Production"
+  services__catalog-api__http__0: "http://catalog-api"        # DNS-ім'я нашого Service (порт 80)
+  services__orders-api__http__0: "http://orders-api:8080"     # Service від aspirate слухає 8080
+  services__reviews-api__http__0: "http://reviews-api:8080"
+  services__aggregator__http__0: "http://aggregator:8080"
+  services__auth-api__http__0: "http://auth-api:8080"
+  services__payments-api__http__0: "http://payments-api:8080"
+  Jwt__Issuer: "https://auth.teashop.local"
+  Jwt__Audience: "teashop-api"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: catalog-config
+data:
+  ASPNETCORE_ENVIRONMENT: "Production"
+  Jwt__Issuer: "https://auth.teashop.local"
+  Jwt__Audience: "teashop-api"
