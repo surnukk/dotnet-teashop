@@ -2,3 +2,6 @@ bin/
 obj/
 .vs/
 *.user
+aspirate-state.json
+**/aspirate-output/**/.*secret*
+**/aspirate-output/**/*.env
