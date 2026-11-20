@@ -47,33 +47,9 @@
       "type": "value.v0",
       "connectionString": "{sql.connectionString};Initial Catalog=IdentityDb"
     },
-    "identityserver-sql": {
-      "type": "container.v0",
-      "connectionString": "Server={identityserver-sql.bindings.tcp.host},{identityserver-sql.bindings.tcp.port};User ID=sa;Password={sql-password.value};TrustServerCertificate=true",
-      "image": "mcr.microsoft.com/mssql/server:2025-latest",
-      "volumes": [
-        {
-          "name": "platform.apphost-04e9402f01-identityserver-sql-data",
-          "target": "/var/opt/mssql",
-          "readOnly": false
-        }
-      ],
-      "env": {
-        "ACCEPT_EULA": "Y",
-        "MSSQL_SA_PASSWORD": "{sql-password.value}"
-      },
-      "bindings": {
-        "tcp": {
-          "scheme": "tcp",
-          "protocol": "tcp",
-          "transport": "tcp",
-          "targetPort": 1433
-        }
-      }
-    },
     "IdentityServerDb": {
       "type": "value.v0",
-      "connectionString": "{identityserver-sql.connectionString};Initial Catalog=IdentityServerDb"
+      "connectionString": "{sql.connectionString};Initial Catalog=IdentityServerDb"
     },
     "mongo": {
       "type": "container.v0",
@@ -171,59 +147,6 @@
         }
       }
     },
-    "keycloak-admin": {
-      "type": "parameter.v0",
-      "value": "{keycloak-admin.inputs.value}",
-      "inputs": {
-        "value": {
-          "type": "string"
-        }
-      }
-    },
-    "keycloak-admin-password": {
-      "type": "parameter.v0",
-      "value": "{keycloak-admin-password.inputs.value}",
-      "inputs": {
-        "value": {
-          "type": "string",
-          "secret": true
-        }
-      }
-    },
-    "keycloak": {
-      "type": "container.v0",
-      "image": "quay.io/keycloak/keycloak:26.3",
-      "args": [
-        "start",
-        "--import-realm"
-      ],
-      "volumes": [
-        {
-          "name": "platform.apphost-04e9402f01-keycloak-data",
-          "target": "/opt/keycloak/data",
-          "readOnly": false
-        }
-      ],
-      "env": {
-        "KC_BOOTSTRAP_ADMIN_USERNAME": "{keycloak-admin.value}",
-        "KC_BOOTSTRAP_ADMIN_PASSWORD": "{keycloak-admin-password.value}",
-        "KC_HEALTH_ENABLED": "true"
-      },
-      "bindings": {
-        "http": {
-          "scheme": "http",
-          "protocol": "tcp",
-          "transport": "http",
-          "targetPort": 8080
-        },
-        "management": {
-          "scheme": "http",
-          "protocol": "tcp",
-          "transport": "http",
-          "targetPort": 9000
-        }
-      }
-    },
     "jwt-secret": {
       "type": "parameter.v0",
       "value": "{jwt-secret.inputs.value}",
@@ -249,9 +172,7 @@
         "Jwt__Issuer": "https://auth.teashop.local",
         "Jwt__Audience": "teashop-api",
         "Jwt__SecretKey": "{jwt-secret.value}",
-        "IdentityServer__Authority": "http://localhost:5200",
-        "services__keycloak__http__0": "{keycloak.bindings.http.url}",
-        "services__keycloak__management__0": "{keycloak.bindings.management.url}"
+        "IdentityServer__Authority": "http://localhost:5200"
       },
       "bindings": {
         "http": {
@@ -281,9 +202,7 @@
         "Jwt__Issuer": "https://auth.teashop.local",
         "Jwt__Audience": "teashop-api",
         "Jwt__SecretKey": "{jwt-secret.value}",
-        "IdentityServer__Authority": "http://localhost:5200",
-        "services__keycloak__http__0": "{keycloak.bindings.http.url}",
-        "services__keycloak__management__0": "{keycloak.bindings.management.url}"
+        "IdentityServer__Authority": "http://localhost:5200"
       },
       "bindings": {
         "http": {
@@ -395,9 +314,7 @@
         "OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY": "in_memory",
         "ASPNETCORE_FORWARDEDHEADERS_ENABLED": "true",
         "HTTP_PORTS": "{payments-api.bindings.http.targetPort}",
-        "IdentityServer__Authority": "http://localhost:5200",
-        "services__keycloak__http__0": "{keycloak.bindings.http.url}",
-        "services__keycloak__management__0": "{keycloak.bindings.management.url}"
+        "IdentityServer__Authority": "http://localhost:5200"
       },
       "bindings": {
         "http": {
@@ -470,9 +387,7 @@
         "Jwt__Issuer": "https://auth.teashop.local",
         "Jwt__Audience": "teashop-api",
         "Jwt__SecretKey": "{jwt-secret.value}",
-        "IdentityServer__Authority": "http://localhost:5200",
-        "services__keycloak__http__0": "{keycloak.bindings.http.url}",
-        "services__keycloak__management__0": "{keycloak.bindings.management.url}"
+        "IdentityServer__Authority": "http://localhost:5200"
       },
       "bindings": {
         "http": {

@@ -9,6 +9,10 @@ var builder = DistributedApplication.CreateBuilder(args);
 var useContainers = !string.Equals(
     builder.Configuration["UseContainers"], "false", StringComparison.OrdinalIgnoreCase);
 
+
+var light = string.Equals(
+    builder.Configuration["Light"], "true", StringComparison.OrdinalIgnoreCase);
+
 // ---------- 2.1 Бази даних ----------
 IResourceBuilder<IResourceWithConnectionString> ordersDb;
 IResourceBuilder<IResourceWithConnectionString> catalogDb;
@@ -30,9 +34,17 @@ if (useContainers)
     catalogDb = sql.AddDatabase("CatalogDb");
     identityDb = sql.AddDatabase("IdentityDb");
 
-    var identityServerSql = builder.AddSqlServer("identityserver-sql", sqlPassword)
-                                   .WithDataVolume();
-    identityServerDb = identityServerSql.AddDatabase("IdentityServerDb");
+    if (light)
+    {
+        // лише для Лаб. 10 на слабкому ноуті: одна SQL-інстанція на всі бази
+        identityServerDb = sql.AddDatabase("IdentityServerDb");
+    }
+    else
+    {
+        var identityServerSql = builder.AddSqlServer("identityserver-sql", sqlPassword)
+                                       .WithDataVolume();
+        identityServerDb = identityServerSql.AddDatabase("IdentityServerDb");
+    }
 
     var mongo = builder.AddMongoDB("mongo")
                        .WithDataVolume();
@@ -47,11 +59,14 @@ if (useContainers)
                     .WithManagementPlugin();
 
     // ---------- Ч.3: Keycloak ----------
-    var keycloakAdmin = builder.AddParameter("keycloak-admin");
-    var keycloakAdminPassword = builder.AddParameter("keycloak-admin-password", secret: true);
+    if (!light)
+    {
+        var keycloakAdmin = builder.AddParameter("keycloak-admin");
+        var keycloakAdminPassword = builder.AddParameter("keycloak-admin-password", secret: true);
 
-    keycloak = builder.AddKeycloak("keycloak", 8080, keycloakAdmin, keycloakAdminPassword)
-                      .WithDataVolume();  
+        keycloak = builder.AddKeycloak("keycloak", 8080, keycloakAdmin, keycloakAdminPassword)
+                          .WithDataVolume();
+    }
 }
 else
 {

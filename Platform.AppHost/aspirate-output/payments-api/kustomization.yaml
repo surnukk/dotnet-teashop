@@ -14,8 +14,6 @@ configMapGenerator:
     - ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
     - HTTP_PORTS=8080
     - IdentityServer__Authority=http://localhost:5200
-    - services__keycloak__http__0=http://keycloak:8080
-    - services__keycloak__management__0=keycloak:9000
     - OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire-dashboard:18889
     - OTEL_SERVICE_NAME=payments-api
     - ASPNETCORE_URLS=http://+:8080;

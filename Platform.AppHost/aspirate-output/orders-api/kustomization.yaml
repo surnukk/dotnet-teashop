@@ -17,8 +17,6 @@ configMapGenerator:
     - Jwt__Audience=teashop-api
     - Jwt__SecretKey=TeashopEastLeaf2026AuthKey00001a
     - IdentityServer__Authority=http://localhost:5200
-    - services__keycloak__http__0=http://keycloak:8080
-    - services__keycloak__management__0=keycloak:9000
     - OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire-dashboard:18889
     - OTEL_SERVICE_NAME=orders-api
     - ASPNETCORE_URLS=http://+:8080;

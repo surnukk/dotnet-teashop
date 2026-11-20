@@ -9,7 +9,7 @@ configMapGenerator:
 - name: messaging-env
   literals:
     - RABBITMQ_DEFAULT_USER=guest
-    - RABBITMQ_DEFAULT_PASS=Teashop#Rb2026
+    - RABBITMQ_DEFAULT_PASS=TeashopRabbit2026
     - OTEL_EXPORTER_OTLP_ENDPOINT=http://aspire-dashboard:18889
     - OTEL_SERVICE_NAME=messaging
 

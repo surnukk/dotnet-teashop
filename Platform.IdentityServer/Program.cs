@@ -45,7 +45,7 @@ builder.Services.AddIdentityServer(options =>
         sql => sql.MigrationsAssembly(migrationsAssembly));
     options.EnableTokenCleanup = true;
     options.TokenCleanupInterval = 3600;
-}).AddDeveloperSigningCredential();
+}).AddDeveloperSigningCredential(persistKey: false);
 
 builder.Services.ConfigureApplicationCookie(options => options.Cookie.SameSite = SameSiteMode.Lax);
 builder.Services.ConfigureExternalCookie(options => options.Cookie.SameSite = SameSiteMode.Lax);
